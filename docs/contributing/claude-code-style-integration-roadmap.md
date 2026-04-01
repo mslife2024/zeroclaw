@@ -137,7 +137,9 @@ ZeroClaw already provides a Rust-first, lightweight agent runtime (memory RAG, h
 | Compaction job: summarized segments + pointer to full archive | Align with existing `compact_context` / summary behavior. |
 | Retention / GC policy | Privacy and disk usage. |
 
-**Started (slice):** Versioned `SessionRecord` in `src/agent/session_record.rs` (v2 on disk, migrates v1 interactive JSON); `SessionCompactionMeta` stores archive-relative paths + last summary excerpt; `auto_compact_history` appends compacted messages to `~/.zeroclaw/sessions/archives/*.jsonl` when the home directory exists. **Still open:** unified resume across gateway/daemon/SQLite, retention/GC, explicit dynamic-context reload tests.
+**Started (slice):** Versioned `SessionRecord` in `src/agent/session_record.rs` (v2 on disk, migrates v1 interactive JSON); `SessionCompactionMeta` stores archive-relative paths + last summary excerpt; `auto_compact_history` appends compacted messages to `~/.zeroclaw/sessions/archives/*.jsonl` when the home directory exists.
+
+**Incremental delivery:** Session scope IDs are centralized in [`src/agent/session_record.rs`](../../src/agent/session_record.rs) (CLI `cli:<path>`, gateway memory id + `gw_` workspace backend key, channels `conversation_history_key`). WebSocket `connect` with `session_id` re-hydrates persisted chat and resends `session_start` so SQLite/JSONL history and memory recall stay aligned. Compaction archive retention is opt-in via `[agent] session_archive_retention_days` (default `0`): GC removes aged `archives/*.jsonl` files not listed in any `compaction.archive_paths` under `~/.zeroclaw/sessions/*.json`, runs after interactive compaction and on gateway startup. Unit tests cover archive GC and `ContextAssembler` fingerprint changes when instruction files change (dynamic layer invalidation on resume).
 
 **Exit criteria:** Restart and continue session; compaction measurably reduces tokens without losing recoverability.
 

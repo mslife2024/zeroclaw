@@ -4479,6 +4479,24 @@ pub async fn run(
                     }
                     compaction_meta.last_summary_excerpt = outcome.summary_excerpt;
                     println!("🧹 Auto-compaction complete");
+                    if config.agent.session_archive_retention_days > 0 {
+                        let retention = std::time::Duration::from_secs(
+                            u64::from(config.agent.session_archive_retention_days)
+                                .saturating_mul(86400),
+                        );
+                        match crate::agent::session_record::gc_compaction_archives_older_than(
+                            retention,
+                        ) {
+                            Ok(n) if n > 0 => {
+                                tracing::info!(
+                                    removed = n,
+                                    "Removed old session compaction archives (retention policy)"
+                                );
+                            }
+                            Err(e) => tracing::warn!(error = %e, "Session archive GC failed"),
+                            _ => {}
+                        }
+                    }
                 }
             }
 
@@ -4496,22 +4514,6 @@ pub async fn run(
 
             if let Some(path) = session_state_file.as_deref() {
                 save_interactive_session_history(path, &history, &compaction_meta)?;
-            }
-
-            if config.agent.session_archive_retention_days > 0 {
-                let retention = std::time::Duration::from_secs(
-                    u64::from(config.agent.session_archive_retention_days).saturating_mul(86400),
-                );
-                match crate::agent::session_record::gc_compaction_archives_older_than(retention) {
-                    Ok(n) if n > 0 => {
-                        tracing::info!(
-                            removed = n,
-                            "Removed old session compaction archives (retention policy)"
-                        );
-                    }
-                    Err(e) => tracing::warn!(error = %e, "Session archive GC failed"),
-                    _ => {}
-                }
             }
         }
     }
