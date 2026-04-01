@@ -24,6 +24,7 @@ Last verified: **February 21, 2026**.
 | `skills` | List/install/remove skills |
 | `migrate` | Import from external runtimes (currently OpenClaw) |
 | `config` | Export machine-readable config schema |
+| `mcp` | Run ZeroClaw as an MCP tool server (stdio or HTTP) |
 | `completions` | Generate shell completion scripts to stdout |
 | `hardware` | Discover and introspect USB hardware |
 | `peripheral` | Configure and flash peripherals |
@@ -64,6 +65,11 @@ Tip:
 
 - `zeroclaw gateway [--host <HOST>] [--port <PORT>]`
 - `zeroclaw daemon [--host <HOST>] [--port <PORT>]`
+
+### `mcp`
+
+- `zeroclaw mcp serve` — stdio MCP (default; newline-delimited JSON-RPC)
+- `zeroclaw mcp serve --transport http [--bind <ADDR>] [--port <PORT>]` — HTTP `POST /mcp` (see [`mcp-serve.md`](../../mcp-serve.md) and `[mcp_serve]` in config)
 
 ### `estop`
 

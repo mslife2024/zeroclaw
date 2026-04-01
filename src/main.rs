@@ -765,13 +765,31 @@ enum DoctorCommands {
     },
 }
 
+#[derive(Clone, Copy, Debug, Default, clap::ValueEnum)]
+enum McpTransport {
+    /// Newline-delimited JSON-RPC on stdin/stdout (default)
+    #[default]
+    Stdio,
+    /// JSON-RPC over HTTP (`POST /mcp`); see `[mcp_serve]` for bind, port, and optional bearer token
+    Http,
+}
+
 #[derive(Subcommand, Debug)]
 enum McpCommands {
-    /// Serve MCP over stdin/stdout (newline-delimited JSON-RPC)
+    /// Serve MCP (stdio or HTTP) with a curated tool allowlist
     Serve {
+        /// Transport: stdio (default) or HTTP
+        #[arg(long, value_enum, default_value_t = McpTransport::Stdio)]
+        transport: McpTransport,
         /// Add a tool name to the allowlist (repeatable). Merged with `[mcp_serve].allowed_tools`.
         #[arg(long = "allow-tool")]
         allow_tool: Vec<String>,
+        /// HTTP listen address (default: `[mcp_serve].http_bind`)
+        #[arg(long)]
+        bind: Option<String>,
+        /// HTTP listen port (default: `[mcp_serve].http_port`)
+        #[arg(long)]
+        port: Option<u16>,
     },
 }
 
@@ -1347,9 +1365,19 @@ async fn main() -> Result<()> {
         }
 
         Commands::Mcp { mcp_command } => match mcp_command {
-            McpCommands::Serve { allow_tool } => {
-                Box::pin(tools::run_mcp_stdio_server(config, allow_tool)).await
-            }
+            McpCommands::Serve {
+                transport,
+                allow_tool,
+                bind,
+                port,
+            } => match transport {
+                McpTransport::Stdio => {
+                    Box::pin(tools::run_mcp_stdio_server(config, allow_tool)).await
+                }
+                McpTransport::Http => {
+                    Box::pin(tools::run_mcp_http_server(config, allow_tool, bind, port)).await
+                }
+            },
         },
 
         Commands::Auth { auth_command } => handle_auth_command(auth_command, &config).await,

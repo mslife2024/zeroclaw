@@ -944,9 +944,17 @@ fn default_mcp_serve_tool_timeout_secs() -> u64 {
     120
 }
 
+fn default_mcp_serve_http_bind() -> String {
+    "127.0.0.1".to_string()
+}
+
+fn default_mcp_serve_http_port() -> u16 {
+    8787
+}
+
 /// Bidirectional MCP: expose ZeroClaw tools as an MCP **server** (`[mcp_serve]`).
 ///
-/// Used by `zeroclaw mcp serve`. Stdio transport only in this release; see docs for policy.
+/// Used by `zeroclaw mcp serve` (stdio or HTTP). See `docs/mcp-serve.md` for policy and transport.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct McpServeConfig {
     /// Tool names to expose. Empty + no CLI `--allow-tool` → `memory_recall` and `file_read` only.
@@ -959,6 +967,16 @@ pub struct McpServeConfig {
     /// Set `true` only after review — any registered tool name may then be allowlisted.
     #[serde(default)]
     pub relax_tool_policy: bool,
+    /// Listen address for HTTP transport (`zeroclaw mcp serve --transport http`). Must be loopback unless [`auth_token`](Self::auth_token) is set.
+    #[serde(default = "default_mcp_serve_http_bind")]
+    pub http_bind: String,
+    /// Listen port for HTTP transport (defaults when CLI `--port` is omitted).
+    #[serde(default = "default_mcp_serve_http_port")]
+    pub http_port: u16,
+    /// Optional bearer token for HTTP transport (`Authorization: Bearer <token>`), same style as the gateway API.
+    /// When unset, HTTP must bind to a loopback address only.
+    #[serde(default)]
+    pub auth_token: Option<String>,
 }
 
 impl Default for McpServeConfig {
@@ -967,6 +985,9 @@ impl Default for McpServeConfig {
             allowed_tools: Vec::new(),
             tool_timeout_secs: default_mcp_serve_tool_timeout_secs(),
             relax_tool_policy: false,
+            http_bind: default_mcp_serve_http_bind(),
+            http_port: default_mcp_serve_http_port(),
+            auth_token: None,
         }
     }
 }
@@ -1369,7 +1390,7 @@ impl Default for ToolResultOffloadConfig {
     }
 }
 
-/// Append assistant finals to `~/.zeroclaw/sessions/transcripts/*.jsonl` (`[agent.session_transcript]`).
+/// Append user and assistant lines to `~/.zeroclaw/sessions/transcripts/*.jsonl` (`[agent.session_transcript]`).
 #[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
 pub struct SessionTranscriptConfig {
     /// When true, each completed assistant reply is appended as one JSON line per session key.

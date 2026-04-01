@@ -157,7 +157,7 @@ pub use linkedin::LinkedInTool;
 pub use llm_task::LlmTaskTool;
 pub use mcp_client::McpRegistry;
 pub use mcp_deferred::{ActivatedToolSet, DeferredMcpToolSet};
-pub use mcp_serve::run_mcp_stdio_server;
+pub use mcp_serve::{run_mcp_http_server, run_mcp_stdio_server};
 pub use mcp_tool::McpToolWrapper;
 pub use memory_forget::MemoryForgetTool;
 pub use memory_purge::MemoryPurgeTool;

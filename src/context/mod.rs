@@ -32,8 +32,10 @@ pub use assembler::{
 pub use fingerprint::{
     compute_fingerprint, git_head_sha, instruction_files_with_mtime, ContextFingerprint,
 };
+pub use git_snapshot::{capture_git_snapshot, GitSnapshot};
+pub use layers::{collect_layered_instruction_paths, ContextLayer, INSTRUCTION_FILENAMES};
 
-/// Max entries in [`DYNAMIC_CONTEXT_BLOCK_CACHE`]; evicts one arbitrary key when full.
+/// Max workspace entries kept for cross-call dynamic-context memoization; evicts one arbitrary key when full.
 const DYNAMIC_CONTEXT_CACHE_MAX_ENTRIES: usize = 48;
 
 struct DynamicContextCacheEntry {
@@ -49,8 +51,6 @@ static DYNAMIC_CONTEXT_BLOCK_CACHE: OnceLock<Mutex<HashMap<PathBuf, DynamicConte
 fn dynamic_context_block_cache() -> &'static Mutex<HashMap<PathBuf, DynamicContextCacheEntry>> {
     DYNAMIC_CONTEXT_BLOCK_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
 }
-pub use git_snapshot::{capture_git_snapshot, GitSnapshot};
-pub use layers::{collect_layered_instruction_paths, ContextLayer, INSTRUCTION_FILENAMES};
 
 /// Optional roots for hierarchical instruction discovery (`AGENTS.md`, `CLAUDE.md`, …).
 #[derive(Debug, Clone, Copy, Default)]

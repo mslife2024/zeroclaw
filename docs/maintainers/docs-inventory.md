@@ -44,6 +44,7 @@ Last reviewed: **February 18, 2026**.
 
 | Doc | Type | Audience |
 |---|---|---|
+| `docs/mcp-serve.md` | Current Guide | users/operators |
 | `docs/one-click-bootstrap.md` | Current Guide | users/operators |
 | `docs/commands-reference.md` | Current Reference | users/operators |
 | `docs/providers-reference.md` | Current Reference | users/operators |
