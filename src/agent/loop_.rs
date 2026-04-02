@@ -243,7 +243,7 @@ pub(crate) fn filter_by_allowed_tools(
 /// based on `tool_filter_groups` and the user message.
 ///
 /// Returns an empty `Vec` when `groups` is empty (no filtering).
-fn compute_excluded_mcp_tools(
+pub(crate) fn compute_excluded_mcp_tools(
     tools_registry: &[Box<dyn Tool>],
     groups: &[crate::config::schema::ToolFilterGroup],
     user_message: &str,
@@ -4074,11 +4074,21 @@ pub async fn run(
         }
 
         // Compute per-turn excluded MCP tools from tool_filter_groups.
-        let excluded_tools = compute_excluded_mcp_tools(
+        let base_excluded = compute_excluded_mcp_tools(
             &tools_registry,
             &config.agent.tool_filter_groups,
             &effective_msg,
         );
+        let deferred_mcp =
+            config.mcp.deferred_loading && config.mcp.enabled && !config.mcp.servers.is_empty();
+        let excluded_tools = crate::agent::tool_router::merge_exclusions_for_turn(
+            base_excluded,
+            &config.agent.tool_router,
+            &tools_registry,
+            &effective_msg,
+            deferred_mcp,
+        )
+        .await;
 
         let transcript_session_key = memory_session_id
             .clone()
@@ -4362,11 +4372,21 @@ pub async fn run(
             history.push(ChatMessage::user(&enriched));
 
             // Compute per-turn excluded MCP tools from tool_filter_groups.
-            let excluded_tools = compute_excluded_mcp_tools(
+            let base_excluded = compute_excluded_mcp_tools(
                 &tools_registry,
                 &config.agent.tool_filter_groups,
                 &effective_input,
             );
+            let deferred_mcp =
+                config.mcp.deferred_loading && config.mcp.enabled && !config.mcp.servers.is_empty();
+            let excluded_tools = crate::agent::tool_router::merge_exclusions_for_turn(
+                base_excluded,
+                &config.agent.tool_router,
+                &tools_registry,
+                &effective_input,
+                deferred_mcp,
+            )
+            .await;
 
             let transcript_session_key = memory_session_id
                 .clone()
@@ -4851,14 +4871,24 @@ pub async fn process_message(
         ChatMessage::system(&system_prompt),
         ChatMessage::user(&enriched),
     ];
-    let mut excluded_tools = compute_excluded_mcp_tools(
+    let mut base_excluded = compute_excluded_mcp_tools(
         &tools_registry,
         &config.agent.tool_filter_groups,
         effective_msg_ref,
     );
     if config.autonomy.level != AutonomyLevel::Full {
-        excluded_tools.extend(config.autonomy.non_cli_excluded_tools.iter().cloned());
+        base_excluded.extend(config.autonomy.non_cli_excluded_tools.iter().cloned());
     }
+    let deferred_mcp =
+        config.mcp.deferred_loading && config.mcp.enabled && !config.mcp.servers.is_empty();
+    let excluded_tools = crate::agent::tool_router::merge_exclusions_for_turn(
+        base_excluded,
+        &config.agent.tool_router,
+        &tools_registry,
+        effective_msg_ref,
+        deferred_mcp,
+    )
+    .await;
 
     let transcript_key = session_id
         .map(String::from)

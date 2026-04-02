@@ -2704,6 +2704,32 @@ async fn process_channel_message(
         route.model.as_str(),
         &msg.content,
     );
+    let mut base_excluded: Vec<String> =
+        if msg.channel == "cli" || ctx.autonomy_level == AutonomyLevel::Full {
+            Vec::new()
+        } else {
+            ctx.non_cli_excluded_tools.as_ref().clone()
+        };
+    for name in crate::agent::loop_::compute_excluded_mcp_tools(
+        ctx.tools_registry.as_ref(),
+        &ctx.prompt_config.agent.tool_filter_groups,
+        &msg.content,
+    ) {
+        if !base_excluded.contains(&name) {
+            base_excluded.push(name);
+        }
+    }
+    let deferred_mcp = ctx.prompt_config.mcp.deferred_loading
+        && ctx.prompt_config.mcp.enabled
+        && !ctx.prompt_config.mcp.servers.is_empty();
+    let excluded_tools = crate::agent::tool_router::merge_exclusions_for_turn(
+        base_excluded,
+        &ctx.prompt_config.agent.tool_router,
+        ctx.tools_registry.as_ref(),
+        &msg.content,
+        deferred_mcp,
+    )
+    .await;
     let llm_result = loop {
         let loop_result = tokio::select! {
             () = cancellation_token.cancelled() => LlmExecutionResult::Cancelled,
@@ -2733,13 +2759,7 @@ async fn process_channel_message(
                             Some(cancellation_token.clone()),
                             delta_tx.clone(),
                             ctx.hooks.as_deref(),
-                            if msg.channel == "cli"
-                                || ctx.autonomy_level == AutonomyLevel::Full
-                            {
-                                &[]
-                            } else {
-                                ctx.non_cli_excluded_tools.as_ref()
-                            },
+                            &excluded_tools,
                             ctx.tool_call_dedup_exempt.as_ref(),
                             ctx.activated_tools.as_ref(),
                             Some(model_switch_callback.clone()),
