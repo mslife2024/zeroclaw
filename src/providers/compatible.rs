@@ -775,7 +775,9 @@ fn parse_sse_line(line: &str) -> StreamResult<Option<String>> {
             }
             // Fallback to reasoning_content for thinking models
             if let Some(reasoning) = &choice.delta.reasoning_content {
-                return Ok(Some(reasoning.clone()));
+                if !reasoning.is_empty() {
+                    return Ok(Some(reasoning.clone()));
+                }
             }
         }
     }
@@ -824,11 +826,11 @@ fn sse_bytes_to_chunks(
                     };
 
                     buffer.push_str(&text);
-
-                    // Process complete lines
+                    
+                   // Process complete lines
                     while let Some(pos) = buffer.find('\n') {
-                        let line = buffer.drain(..=pos).collect::<String>();
-                        buffer = buffer[pos + 1..].to_string();
+                        let line = buffer[..pos].to_string();
+                        buffer.drain(..=pos);
 
                         match parse_sse_line(&line) {
                             Ok(Some(content)) => {
