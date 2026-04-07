@@ -1256,7 +1256,6 @@ impl Provider for OpenAiCompatibleProvider {
             prompt_caching: false,
         }
     }
-
     async fn chat_with_system(
         &self,
         system_prompt: Option<&str>,
@@ -1872,6 +1871,26 @@ impl Provider for OpenAiCompatibleProvider {
                 .await?;
         }
         Ok(())
+    }
+    // ✅ Explicitly implement to ensure streaming works
+    fn stream_chat_with_history(
+        &self,
+        messages: &[ChatMessage],
+        model: &str,
+        temperature: f64,
+        options: StreamOptions,
+    ) -> stream::BoxStream<'static, StreamResult<StreamChunk>> {
+        let system = messages
+            .iter()
+            .find(|m| m.role == "system")
+            .map(|m| m.content.as_str());
+        let last_user = messages
+            .iter()
+            .rfind(|m| m.role == "user")
+            .map(|m| m.content.as_str())
+            .unwrap_or("");
+        
+        self.stream_chat_with_system(system, last_user, model, temperature, options)
     }
 }
 
