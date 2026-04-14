@@ -22,6 +22,11 @@ pub fn is_non_retryable(err: &anyhow::Error) -> bool {
         return false;
     }
 
+    // Oversized payloads / vague 400s may recover after client-side compaction.
+    if is_request_entity_too_large(err) || is_context_related_bad_request(err) {
+        return false;
+    }
+
     // Tool schema validation errors are NOT non-retryable — the provider's
     // built-in fallback in compatible.rs can recover by switching to
     // prompt-guided tool instructions.
@@ -112,6 +117,55 @@ fn is_context_window_exceeded(err: &anyhow::Error) -> bool {
     ];
 
     hints.iter().any(|hint| lower.contains(hint))
+}
+
+fn is_request_entity_too_large(err: &anyhow::Error) -> bool {
+    if let Some(reqwest_err) = err.downcast_ref::<reqwest::Error>() {
+        if let Some(status) = reqwest_err.status() {
+            return status.as_u16() == 413;
+        }
+    }
+    let lower = err.to_string().to_lowercase();
+    lower.contains("413")
+        || lower.contains("request entity too large")
+        || lower.contains("payload too large")
+}
+
+fn is_context_related_bad_request(err: &anyhow::Error) -> bool {
+    if let Some(reqwest_err) = err.downcast_ref::<reqwest::Error>() {
+        if let Some(status) = reqwest_err.status() {
+            if status.as_u16() == 400 {
+                let lower = err.to_string().to_lowercase();
+                return lower.contains("context")
+                    || lower.contains("token")
+                    || lower.contains("length")
+                    || lower.contains("prompt")
+                    || lower.contains("message")
+                    || lower.contains("input");
+            }
+        }
+    }
+    false
+}
+
+/// True when trimming history may help (used by the agent compaction pipeline).
+#[must_use]
+pub fn error_suggests_reactive_compaction(err: &anyhow::Error) -> bool {
+    is_context_window_exceeded(err)
+        || is_request_entity_too_large(err)
+        || is_context_related_bad_request(err)
+}
+
+/// Anthropic-style API overload (HTTP 529).
+#[must_use]
+pub fn is_api_overload_529(err: &anyhow::Error) -> bool {
+    if let Some(reqwest_err) = err.downcast_ref::<reqwest::Error>() {
+        if let Some(status) = reqwest_err.status() {
+            return status.as_u16() == 529;
+        }
+    }
+    let lower = err.to_string().to_lowercase();
+    lower.contains("529") && (lower.contains("overload") || lower.contains("unavailable"))
 }
 
 /// Check if an error is a rate-limit (429) error.
@@ -344,6 +398,14 @@ impl ReliableProvider {
             base
         }
     }
+
+    fn backoff_with_overload(&self, backoff_ms: u64, err: &anyhow::Error) -> u64 {
+        let mut wait = self.compute_backoff(backoff_ms, err);
+        if is_api_overload_529(err) {
+            wait = wait.saturating_mul(2).min(30_000);
+        }
+        wait
+    }
 }
 
 #[async_trait]
@@ -455,7 +517,7 @@ impl Provider for ReliableProvider {
                             }
 
                             if attempt < self.max_retries {
-                                let wait = self.compute_backoff(backoff_ms, &e);
+                                let wait = self.backoff_with_overload(backoff_ms, &e);
                                 tracing::warn!(
                                     provider = provider_name,
                                     model = *current_model,
@@ -603,7 +665,7 @@ impl Provider for ReliableProvider {
                             }
 
                             if attempt < self.max_retries {
-                                let wait = self.compute_backoff(backoff_ms, &e);
+                                let wait = self.backoff_with_overload(backoff_ms, &e);
                                 tracing::warn!(
                                     provider = provider_name,
                                     model = *current_model,
@@ -757,7 +819,7 @@ impl Provider for ReliableProvider {
                             }
 
                             if attempt < self.max_retries {
-                                let wait = self.compute_backoff(backoff_ms, &e);
+                                let wait = self.backoff_with_overload(backoff_ms, &e);
                                 tracing::warn!(
                                     provider = provider_name,
                                     model = *current_model,
@@ -898,7 +960,7 @@ impl Provider for ReliableProvider {
                             }
 
                             if attempt < self.max_retries {
-                                let wait = self.compute_backoff(backoff_ms, &e);
+                                let wait = self.backoff_with_overload(backoff_ms, &e);
                                 tracing::warn!(
                                     provider = provider_name,
                                     model = *current_model,

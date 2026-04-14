@@ -39,6 +39,18 @@ pub trait HookHandler: Send + Sync {
     async fn on_message_sent(&self, _channel: &str, _recipient: &str, _content: &str) {}
     async fn on_heartbeat_tick(&self) {}
 
+    /// Void hook after a full agent turn completes successfully (parallel).
+    async fn on_after_turn_completed(&self, _channel: &str, _summary: &str) {}
+
+    /// Blocking-style post-turn hook; first `Cancel` wins (sequential by priority).
+    async fn after_turn_completed_blocking(
+        &self,
+        _channel: &str,
+        _summary: &str,
+    ) -> HookResult<()> {
+        HookResult::Continue(())
+    }
+
     // --- Modifying hooks (sequential by priority, can cancel) ---
     async fn before_model_resolve(
         &self,

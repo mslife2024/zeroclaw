@@ -738,6 +738,8 @@ enum ModelCommands {
 
 #[derive(Subcommand, Debug)]
 enum DoctorCommands {
+    /// QueryEngine v2 build flag and recent transition trace (in-process)
+    QueryEngine,
     /// Probe model catalogs across providers and report availability
     Models {
         /// Probe a specific provider only (default: all known providers)
@@ -1325,6 +1327,7 @@ async fn main() -> Result<()> {
         }
 
         Commands::Doctor { doctor_command } => match doctor_command {
+            Some(DoctorCommands::QueryEngine) => doctor::run_query_engine(),
             Some(DoctorCommands::Models {
                 provider,
                 use_cache,

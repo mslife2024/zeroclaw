@@ -2823,6 +2823,7 @@ async fn process_channel_message(
                             Some(model_switch_callback.clone()),
                             &ctx.pacing,
                             &ctx.prompt_config.agent.tool_result_offload,
+                            &ctx.prompt_config.agent.history_pruning,
                         ),
                     ),
                 ),

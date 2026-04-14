@@ -312,6 +312,46 @@ impl HookRunner {
         }
         HookResult::Continue((channel, recipient, content))
     }
+
+    pub async fn fire_after_turn_completed(&self, channel: &str, summary: &str) {
+        let futs: Vec<_> = self
+            .handlers
+            .iter()
+            .map(|h| h.on_after_turn_completed(channel, summary))
+            .collect();
+        join_all(futs).await;
+    }
+
+    pub async fn run_after_turn_completed_blocking(
+        &self,
+        channel: &str,
+        summary: &str,
+    ) -> HookResult<()> {
+        for h in &self.handlers {
+            let hook_name = h.name();
+            match AssertUnwindSafe(h.after_turn_completed_blocking(channel, summary))
+                .catch_unwind()
+                .await
+            {
+                Ok(HookResult::Continue(())) => {}
+                Ok(HookResult::Cancel(reason)) => {
+                    info!(
+                        hook = hook_name,
+                        reason,
+                        "after_turn_completed_blocking cancelled by hook"
+                    );
+                    return HookResult::Cancel(reason);
+                }
+                Err(_) => {
+                    tracing::error!(
+                        hook = hook_name,
+                        "after_turn_completed_blocking hook panicked; continuing"
+                    );
+                }
+            }
+        }
+        HookResult::Continue(())
+    }
 }
 
 #[cfg(test)]

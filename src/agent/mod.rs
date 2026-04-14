@@ -1,6 +1,7 @@
 #[allow(clippy::module_inception)]
 pub mod agent;
 pub mod classifier;
+pub mod compaction_pipeline;
 pub mod context_analyzer;
 pub mod dispatcher;
 pub mod eval;
@@ -9,8 +10,12 @@ pub mod loop_;
 pub mod loop_detector;
 pub mod memory_loader;
 pub mod prompt;
+#[cfg(feature = "query_engine_v2")]
+pub mod query_engine;
 pub mod session_record;
 pub mod session_transcript;
+pub mod state;
+pub mod stop_hooks;
 pub mod thinking;
 pub mod tool_result_offload;
 pub mod tool_router;

@@ -786,6 +786,12 @@ impl Agent {
         let effective_model = self.classify_model(user_message);
         self.append_user_session_transcript("gateway", &effective_model, user_message);
 
+        #[cfg(feature = "query_engine_v2")]
+        crate::agent::query_engine::record_transition(
+            crate::agent::state::TransitionReason::BeginTurn,
+            Some("agent.turn".into()),
+        );
+
         for _ in 0..self.config.max_tool_iterations {
             let messages = self.tool_dispatcher.to_provider_messages(&self.history);
 
@@ -962,6 +968,12 @@ impl Agent {
 
         let effective_model = self.classify_model(user_message);
         self.append_user_session_transcript("gateway", &effective_model, user_message);
+
+        #[cfg(feature = "query_engine_v2")]
+        crate::agent::query_engine::record_transition(
+            crate::agent::state::TransitionReason::BeginTurn,
+            Some("agent.turn_streamed".into()),
+        );
 
         // ── Turn loop ──────────────────────────────────────────────────
         for _ in 0..self.config.max_tool_iterations {

@@ -104,6 +104,19 @@ fn append_transcript_line_for_config(
     }
 }
 
+/// Commit the user line for this turn before any LLM work (same persistence as
+/// [`append_user_for_config`]; use this at orchestration boundaries for clarity).
+pub fn commit_user_turn(
+    cfg: &SessionTranscriptConfig,
+    session_key: &str,
+    channel: &str,
+    provider: &str,
+    model: &str,
+    text: &str,
+) {
+    append_user_for_config(cfg, session_key, channel, provider, model, text);
+}
+
 /// Append one user line when `cfg.enabled` and paths succeed.
 pub(crate) fn append_user_for_config(
     cfg: &SessionTranscriptConfig,

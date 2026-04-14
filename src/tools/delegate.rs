@@ -1144,6 +1144,7 @@ impl DelegateTool {
                 None,
                 &crate::config::PacingConfig::default(),
                 &crate::config::ToolResultOffloadConfig::default(),
+                &crate::agent::history_pruner::HistoryPrunerConfig::default(),
             ),
         )
         .await;
