@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/zeroclaw-labs/zeroclaw/master/docs/assets/zeroclaw-banner.png" alt="ZeroClaw" width="600" />
+  <img src="https://raw.githubusercontent.com/morpheum-labs/zeroclaw/master/docs/assets/zeroclaw-banner.png" alt="ZeroClaw" width="600" />
 </p>
 
 <h1 align="center">🦀 ZeroClaw — Personal AI Assistant</h1>
@@ -66,9 +66,9 @@ brew install zeroclaw
 ### One-click bootstrap
 
 ```bash
-git clone https://github.com/zeroclaw-labs/zeroclaw.git
+git clone https://github.com/morpheum-labs/zeroclaw.git
 cd zeroclaw
-./install.sh
+.script/install.sh
 ```
 
 `zeroclaw onboard` runs automatically after install to configure your workspace and provider.
@@ -92,7 +92,7 @@ Upgrading? Run `zeroclaw doctor` after updating.
 ### From source (development)
 
 ```bash
-git clone https://github.com/zeroclaw-labs/zeroclaw.git
+git clone https://github.com/morpheum-labs/zeroclaw.git
 cd zeroclaw
 
 cargo build --release --locked
@@ -149,7 +149,7 @@ Use this board for important notices (breaking changes, security advisories, mai
 
 | Date (UTC) | Level       | Notice                                                                                                                                                                                                                                                                                                                                                 | Action                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | ---------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-02-19 | _Critical_  | We are **not affiliated** with `openagen/zeroclaw`, `zeroclaw.org` or `zeroclaw.net`. The `zeroclaw.org` and `zeroclaw.net` domains currently points to the `openagen/zeroclaw` fork, and that domain/repository are impersonating our official website/project.                                                                                       | Do not trust information, binaries, fundraising, or announcements from those sources. Use only [this repository](https://github.com/zeroclaw-labs/zeroclaw) and our verified social accounts.                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| 2026-02-19 | _Critical_  | We are **not affiliated** with `openagen/zeroclaw`, `zeroclaw.org` or `zeroclaw.net`. The `zeroclaw.org` and `zeroclaw.net` domains currently points to the `openagen/zeroclaw` fork, and that domain/repository are impersonating our official website/project.                                                                                       | Do not trust information, binaries, fundraising, or announcements from those sources. Use only [this repository](https://github.com/morpheum-labs/zeroclaw) and our verified social accounts.                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | 2026-02-21 | _Important_ | Our official website is now live: [zeroclawlabs.ai](https://zeroclawlabs.ai). Thanks for your patience while we prepared the launch. We are still seeing impersonation attempts, so do **not** join any investment or fundraising activity claiming the ZeroClaw name unless it is published through our official channels.                            | Use [this repository](https://github.com/zeroclaw-labs/zeroclaw) as the single source of truth. Follow [X (@zeroclawlabs)](https://x.com/zeroclawlabs?s=21), [Facebook (Group)](https://www.facebook.com/groups/zeroclawlabs), and [Reddit (r/zeroclawlabs)](https://www.reddit.com/r/zeroclawlabs/) for official updates. |
 | 2026-02-19 | _Important_ | Anthropic updated the Authentication and Credential Use terms on 2026-02-19. Claude Code OAuth tokens (Free, Pro, Max) are intended exclusively for Claude Code and Claude.ai; using OAuth tokens from Claude Free/Pro/Max in any other product, tool, or service (including Agent SDK) is not permitted and may violate the Consumer Terms of Service. | Please temporarily avoid Claude Code OAuth integrations to prevent potential loss. Original clause: [Authentication and Credential Use](https://code.claude.com/docs/en/legal-and-compliance#authentication-and-credential-use).                                                                                                                                                                                                                                                                                                                                                                                    |
 
@@ -442,7 +442,7 @@ Full commands reference: [docs/reference/cli/commands-reference.md](docs/referen
 Or skip the steps above and install everything (system deps, Rust, ZeroClaw) in a single command:
 
 ```bash
-curl -LsSf https://raw.githubusercontent.com/zeroclaw-labs/zeroclaw/master/install.sh | bash
+curl -LsSf https://raw.githubusercontent.com/morpheum-labs/zeroclaw/master/install.sh | bash
 ```
 
 #### Compilation resource requirements
@@ -473,7 +473,7 @@ Release assets are published for:
 - Windows: `x86_64`
 
 Download the latest assets from:
-<https://github.com/zeroclaw-labs/zeroclaw/releases/latest>
+<https://github.com/morpheum-labs/zeroclaw/releases/latest>
 
 ## Docs
 
@@ -539,7 +539,7 @@ We're building in the open because the best ideas come from everywhere. If you'r
 
 ## Contributing
 
-New to ZeroClaw? Look for issues labeled [`good first issue`](https://github.com/zeroclaw-labs/zeroclaw/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) — see our [Contributing Guide](CONTRIBUTING.md#first-time-contributors) for how to get started. AI/vibe-coded PRs welcome! 🤖
+New to ZeroClaw? Look for issues labeled [`good first issue`](https://github.com/morpheum-labs/zeroclaw/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) — see our [Contributing Guide](CONTRIBUTING.md#first-time-contributors) for how to get started. AI/vibe-coded PRs welcome! 🤖
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) and [CLA.md](docs/contributing/cla.md). Implement a trait, submit a PR:
 
@@ -560,11 +560,11 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) and [CLA.md](docs/contributing/cla.md). I
 
 **This is the only official ZeroClaw repository:**
 
-> https://github.com/zeroclaw-labs/zeroclaw
+> https://github.com/morpheum-labs/zeroclaw
 
 Any other repository, organization, domain, or package claiming to be "ZeroClaw" or implying affiliation with ZeroClaw Labs is **unauthorized and not affiliated with this project**. Known unauthorized forks will be listed in [TRADEMARK.md](docs/maintainers/trademark.md).
 
-If you encounter impersonation or trademark misuse, please [open an issue](https://github.com/zeroclaw-labs/zeroclaw/issues).
+If you encounter impersonation or trademark misuse, please [open an issue](https://github.com/morpheum-labs/zeroclaw/issues).
 
 ---
 
