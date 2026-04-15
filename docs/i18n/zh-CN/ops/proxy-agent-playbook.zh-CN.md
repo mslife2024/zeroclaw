@@ -216,7 +216,7 @@
 
 ## 10. 相关文档
 
-- [README.zh-CN.md](./README.zh-CN.md) — 文档索引和分类。
+- [README.md](../../../README.md) — 文档索引和分类。
 - [network-deployment.zh-CN.md](./network-deployment.zh-CN.md) — 端到端网络部署和隧道拓扑指南。
 - [resource-limits.zh-CN.md](./resource-limits.zh-CN.md) — 网络/工具执行上下文的运行时安全限制。
 

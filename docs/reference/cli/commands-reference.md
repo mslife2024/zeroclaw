@@ -19,14 +19,14 @@ Order matches `zeroclaw --help`.
 | `gateway` | Start or manage the HTTP/WebSocket gateway (webhooks, pairing, websockets) |
 | `daemon` | Start supervised runtime (gateway + channels + optional heartbeat/scheduler) |
 | `service` | Manage user-level OS service lifecycle |
-| `doctor` | Run diagnostics and freshness checks |
+| `doctor` | Run diagnostics for daemon, scheduler, and channel freshness |
 | `status` | Print current configuration and system summary |
 | `estop` | Engage/resume emergency stop levels and inspect estop state |
 | `cron` | Manage scheduled tasks |
 | `models` | Refresh provider model catalogs |
 | `providers` | List provider IDs, aliases, and active provider |
 | `channel` | Manage channels and channel health checks |
-| `integrations` | Inspect integration details |
+| `integrations` | Browse 50+ integrations |
 | `skills` | List/install/remove skills |
 | `migrate` | Import from external runtimes (currently OpenClaw) |
 | `auth` | Manage provider subscription authentication profiles (OAuth, tokens, profiles) |
@@ -92,6 +92,7 @@ Daemon:
 ### `mcp`
 
 - `zeroclaw mcp serve` — stdio MCP (default; newline-delimited JSON-RPC)
+- `zeroclaw mcp serve --allow-tool <NAME>` — add a tool to the allowlist (repeatable; merged with `[mcp_serve].allowed_tools`)
 - `zeroclaw mcp serve --transport http [--bind <ADDR>] [--port <PORT>]` — HTTP `POST /mcp` (see [`mcp-serve.md`](../../mcp-serve.md) and `[mcp_serve]` in config)
 
 ### `shell`

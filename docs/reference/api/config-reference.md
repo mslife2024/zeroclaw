@@ -23,7 +23,7 @@ Schema export command:
 | Key | Default | Notes |
 |---|---|---|
 | `default_provider` | `openrouter` | provider ID or alias |
-| `default_model` | `anthropic/claude-sonnet-4-6` | model routed through selected provider |
+| `default_model` | `anthropic/claude-sonnet-4.6` | model routed through selected provider |
 | `default_temperature` | `0.7` | model temperature |
 
 ## `[observability]`
@@ -64,8 +64,9 @@ runtime_trace_max_entries = 200
 Provider selection can also be controlled by environment variables. Precedence is:
 
 1. `ZEROCLAW_PROVIDER` (explicit override, always wins when non-empty)
-2. `PROVIDER` (legacy fallback, only applied when config provider is unset or still `openrouter`)
-3. `default_provider` in `config.toml`
+2. `ZEROCLAW_MODEL_PROVIDER` or `MODEL_PROVIDER` (Codex app-server style; used when `ZEROCLAW_PROVIDER` is unset)
+3. `PROVIDER` (legacy fallback, only applied when config provider is unset or still `openrouter`)
+4. `default_provider` in `config.toml`
 
 Operational note for container users:
 
@@ -266,7 +267,7 @@ Notes:
 ```toml
 [agents.researcher]
 provider = "openrouter"
-model = "anthropic/claude-sonnet-4-6"
+model = "anthropic/claude-sonnet-4.6"
 system_prompt = "You are a research assistant."
 max_depth = 2
 agentic = true
@@ -507,18 +508,20 @@ and must not end with `/`.
 |---|---|---|
 | `level` | `supervised` | `read_only`, `supervised`, or `full` |
 | `workspace_only` | `true` | reject absolute path inputs unless explicitly disabled |
-| `allowed_commands` | _required for shell execution_ | allowlist of executable names, explicit executable paths, or `"*"` |
+| `allowed_commands` | built-in starter list | allowlist of executable names, explicit executable paths, or `"*"` (see `AutonomyConfig::default` in `schema.rs` for the exact default set) |
 | `forbidden_paths` | built-in protected list | explicit path denylist (system paths + sensitive dotdirs by default) |
 | `allowed_roots` | `[]` | additional roots allowed outside workspace after canonicalization |
 | `max_actions_per_hour` | `20` | per-policy action budget |
 | `max_cost_per_day_cents` | `500` | per-policy spend guardrail |
 | `require_approval_for_medium_risk` | `true` | approval gate for medium-risk commands |
 | `block_high_risk_commands` | `true` | hard block for high-risk commands |
-| `auto_approve` | `[]` | tool operations always auto-approved |
+| `auto_approve` | built-in defaults (merged on load) | Tools that skip the approval prompt when eligible; see note below |
 | `always_ask` | `[]` | tool operations that always require approval |
+| `non_cli_excluded_tools` | `[]` | tool names hidden from non-CLI channels (Telegram, Discord, etc.) in tool specs |
 
 Notes:
 
+- `auto_approve` in TOML **replaces** the serde default array on parse, but after load `AutonomyConfig::ensure_default_auto_approve` **merges** a fixed safe list back in (even when TOML sets `[]` or a custom list). Built-ins include `file_read`, `memory_recall`, `web_search_tool`, `web_fetch`, `calculator`, `glob_search`, `content_search`, `image_info`, and `weather`. Use `always_ask` to force approval for a tool that would otherwise auto-approve.
 - `level = "full"` skips medium-risk approval gating for shell execution, while still enforcing configured guardrails.
 - Access outside the workspace requires `allowed_roots`, even when `workspace_only = false`.
 - `allowed_roots` supports absolute paths, `~/...`, and workspace-relative paths.

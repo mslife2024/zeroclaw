@@ -13,10 +13,10 @@ Last refreshed: **February 22, 2026**.
 | Language | Entry point | Canonical tree | Notes |
 |---|---|---|---|
 | English | `docs/README.md` | `docs/` | Source-of-truth runtime behavior docs are authored in English first. |
-| Chinese (`zh-CN`) | `docs/README.zh-CN.md` | `docs/` localized hub + selected localized docs | Uses localized hub and shared category structure. |
-| Japanese (`ja`) | `docs/README.ja.md` | `docs/` localized hub + selected localized docs | Uses localized hub and shared category structure. |
-| Russian (`ru`) | `docs/README.ru.md` | `docs/` localized hub + selected localized docs | Uses localized hub and shared category structure. |
-| French (`fr`) | `docs/README.fr.md` | `docs/` localized hub + selected localized docs | Uses localized hub and shared category structure. |
+| Chinese (`zh-CN`) | `README.md` / `docs/README.md` | `docs/i18n/zh-CN/` | Partial localized articles; use English entry points for navigation. |
+| Japanese (`ja`) | `README.md` / `docs/README.md` | `docs/i18n/ja/` | Partial localized articles; use English entry points for navigation. |
+| Russian (`ru`) | `README.md` / `docs/README.md` | `docs/i18n/ru/` | Partial localized articles; use English entry points for navigation. |
+| French (`fr`) | `README.md` / `docs/README.md` | `docs/i18n/fr/` | Partial localized articles; use English entry points for navigation. |
 | Vietnamese (`vi`) | `docs/i18n/vi/README.md` | `docs/i18n/vi/` | Full Vietnamese tree is canonical under `docs/i18n/vi/`; `docs/vi/` and `docs/*.vi.md` are compatibility paths. |
 
 ## 2) By Part (Category)

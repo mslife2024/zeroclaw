@@ -81,7 +81,7 @@ pub struct Config {
     /// Default provider ID or alias (e.g. `"openrouter"`, `"ollama"`, `"anthropic"`). Default: `"openrouter"`.
     #[serde(alias = "model_provider")]
     pub default_provider: Option<String>,
-    /// Default model routed through the selected provider (e.g. `"anthropic/claude-sonnet-4-6"`).
+    /// Default model routed through the selected provider (e.g. `"anthropic/claude-sonnet-4.6"`).
     #[serde(alias = "model")]
     pub default_model: Option<String>,
     /// Optional named provider profiles keyed by id (Codex app-server compatible layout).
@@ -5381,9 +5381,9 @@ pub struct AutonomyConfig {
     pub allowed_commands: Vec<String>,
     /// Explicit path denylist. Default includes system-critical paths and sensitive dotdirs.
     pub forbidden_paths: Vec<String>,
-    /// Maximum actions allowed per hour per policy. Default: `100`.
+    /// Maximum actions allowed per hour per policy. Default: `20`.
     pub max_actions_per_hour: u32,
-    /// Maximum cost per day in cents per policy. Default: `1000`.
+    /// Maximum cost per day in cents per policy. Default: `500`.
     pub max_cost_per_day_cents: u32,
 
     /// Require explicit approval for medium-risk shell commands.

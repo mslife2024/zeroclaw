@@ -16,15 +16,7 @@
 | 文档 | 类型 | 受众 |
 |---|---|---|
 | `README.md` | 当前指南 | 所有读者 |
-| `README.zh-CN.md` | 当前指南（本地化） | 中文读者 |
-| `README.ja.md` | 当前指南（本地化） | 日文读者 |
-| `README.ru.md` | 当前指南（本地化） | 俄文读者 |
-| `README.vi.md` | 当前指南（本地化） | 越南文读者 |
 | `docs/README.md` | 当前指南（中心） | 所有读者 |
-| `docs/README.zh-CN.md` | 当前指南（本地化中心） | 中文读者 |
-| `docs/README.ja.md` | 当前指南（本地化中心） | 日文读者 |
-| `docs/README.ru.md` | 当前指南（本地化中心） | 俄文读者 |
-| `docs/README.vi.md` | 当前指南（本地化中心） | 越南文读者 |
 | `docs/SUMMARY.md` | 当前指南（统一目录） | 所有读者 |
 | `docs/structure/README.md` | 当前指南（结构地图） | 所有读者 |
 

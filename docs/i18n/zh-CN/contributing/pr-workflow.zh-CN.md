@@ -11,7 +11,7 @@
 
 相关参考：
 
-- [`docs/README.md`](../../../README.zh-CN.md) 了解文档分类和导航。
+- [`docs/README.md`](../../../README.md) 了解文档分类和导航。
 - [`ci-map.md`](./ci-map.zh-CN.md) 了解各工作流的所有者、触发条件和分类流程。
 - [`reviewer-playbook.md`](./reviewer-playbook.zh-CN.md) 了解评审者日常执行指南。
 
@@ -352,7 +352,7 @@
 
 ## 15. 相关文档
 
-- [README.md](../../../README.zh-CN.md) — 文档分类和导航。
+- [README.md](../../../README.md) — 文档分类和导航。
 - [ci-map.md](./ci-map.zh-CN.md) — CI 工作流所有者和分类地图。
 - [reviewer-playbook.md](./reviewer-playbook.zh-CN.md) — 评审者执行模型。
 - [actions-source-policy.md](./actions-source-policy.zh-CN.md) — Action 源白名单政策。

@@ -10,7 +10,7 @@
 
 | Tôi muốn… | Xem tài liệu |
 |---|---|
-| Cài đặt và chạy nhanh | [../../README.vi.md](../../README.vi.md) / [../../README.md](../../README.md) |
+| Cài đặt và chạy nhanh | [../../README.md](../../README.md) |
 | Cài đặt bằng một lệnh | [one-click-bootstrap.md](one-click-bootstrap.md) |
 | Tìm lệnh theo tác vụ | [commands-reference.md](commands-reference.md) |
 | Kiểm tra giá trị mặc định và khóa cấu hình | [config-reference.md](config-reference.md) |
@@ -86,7 +86,5 @@
 
 ## Ngôn ngữ khác
 
-- English: [../README.md](../README.md)
-- 简体中文: [../README.zh-CN.md](../README.zh-CN.md)
-- 日本語: [../README.ja.md](../README.ja.md)
-- Русский: [../README.ru.md](../README.ru.md)
+- English (project README): [../../README.md](../../README.md)
+- English (docs hub): [../README.md](../README.md)

@@ -26,41 +26,6 @@
 Built by students and members of the Harvard, MIT, and Sundai.Club communities.
 </p>
 
-<p align="center">
-  🌐 <strong>Languages:</strong>
-  <a href="README.md">🇺🇸 English</a> ·
-  <a href="README.zh-CN.md">🇨🇳 简体中文</a> ·
-  <a href="README.ja.md">🇯🇵 日本語</a> ·
-  <a href="README.ko.md">🇰🇷 한국어</a> ·
-  <a href="README.vi.md">🇻🇳 Tiếng Việt</a> ·
-  <a href="README.tl.md">🇵🇭 Tagalog</a> ·
-  <a href="README.es.md">🇪🇸 Español</a> ·
-  <a href="README.pt.md">🇧🇷 Português</a> ·
-  <a href="README.it.md">🇮🇹 Italiano</a> ·
-  <a href="README.de.md">🇩🇪 Deutsch</a> ·
-  <a href="README.fr.md">🇫🇷 Français</a> ·
-  <a href="README.ar.md">🇸🇦 العربية</a> ·
-  <a href="README.hi.md">🇮🇳 हिन्दी</a> ·
-  <a href="README.ru.md">🇷🇺 Русский</a> ·
-  <a href="README.bn.md">🇧🇩 বাংলা</a> ·
-  <a href="README.he.md">🇮🇱 עברית</a> ·
-  <a href="README.pl.md">🇵🇱 Polski</a> ·
-  <a href="README.cs.md">🇨🇿 Čeština</a> ·
-  <a href="README.nl.md">🇳🇱 Nederlands</a> ·
-  <a href="README.tr.md">🇹🇷 Türkçe</a> ·
-  <a href="README.uk.md">🇺🇦 Українська</a> ·
-  <a href="README.id.md">🇮🇩 Bahasa Indonesia</a> ·
-  <a href="README.th.md">🇹🇭 ไทย</a> ·
-  <a href="README.ur.md">🇵🇰 اردو</a> ·
-  <a href="README.ro.md">🇷🇴 Română</a> ·
-  <a href="README.sv.md">🇸🇪 Svenska</a> ·
-  <a href="README.el.md">🇬🇷 Ελληνικά</a> ·
-  <a href="README.hu.md">🇭🇺 Magyar</a> ·
-  <a href="README.fi.md">🇫🇮 Suomi</a> ·
-  <a href="README.da.md">🇩🇰 Dansk</a> ·
-  <a href="README.nb.md">🇳🇴 Norsk</a>
-</p>
-
 ZeroClaw is a personal AI assistant you run on your own devices. It answers you on the channels you already use (WhatsApp, Telegram, Slack, Discord, Signal, iMessage, Matrix, IRC, Email, Bluesky, Nostr, Mattermost, Nextcloud Talk, DingTalk, Lark, QQ, Reddit, LinkedIn, Twitter, MQTT, WeChat Work, and more). It has a web dashboard for real-time control and can connect to hardware peripherals (ESP32, STM32, Arduino, Raspberry Pi). The Gateway is just the control plane — the product is the assistant.
 
 If you want a personal, single-user assistant that feels local, fast, and always-on, this is it.
@@ -112,35 +77,19 @@ cd zeroclaw
 
 Full beginner guide (auth, pairing, channels): [Getting started](docs/setup-guides/one-click-bootstrap.md)
 
+Detailed command lines (non-interactive install, gateway ports, daemon, auth, completions): [Quick start command reference](docs/setup-guides/quick-start-command-reference.md)
+
 ```bash
-# Install + onboard
-./install.sh --api-key "sk-..." --provider openrouter
-
-# Start the gateway (webhook server + web dashboard)
-zeroclaw gateway                # same as `gateway start`; uses [gateway] host/port from config (default port 42617)
-zeroclaw gateway start --port 0 # random port (then read the bound port from logs/status)
-
-# Talk to the assistant
+./install.sh
+zeroclaw gateway
 zeroclaw agent -m "Hello, ZeroClaw!"
-
-# Interactive mode
-zeroclaw agent
-
-# Start full autonomous runtime (gateway + channels + cron + hands)
-zeroclaw daemon
-
-# Check status
 zeroclaw status
-
-# Run diagnostics
 zeroclaw doctor
 ```
 
 Upgrading? Run `zeroclaw doctor` after updating.
 
 ### From source (development)
-
-As of April 2026 the legacy standalone agent loop has been removed in favor of the QueryEngine-orchestrated path. After pulling the latest sources, run `cargo build` (or `cargo clean && cargo build` if incremental artifacts confuse the compiler).
 
 ```bash
 git clone https://github.com/zeroclaw-labs/zeroclaw.git
@@ -152,7 +101,7 @@ cargo install --path . --force --locked
 zeroclaw onboard
 ```
 
-> **Dev fallback (no global install):** prefix commands with `cargo run --release --` (example: `cargo run --release -- status`).
+Build notes, `cargo clean`, and running without a global install (`cargo run --release --`): [Quick start command reference](docs/setup-guides/quick-start-command-reference.md#from-source-development).
 
 ## Migrating from OpenClaw
 
@@ -251,10 +200,9 @@ Local machine quick benchmark (macOS arm64, Feb 2026) normalized for 0.8GHz edge
 ```bash
 cargo build --release
 ls -lh target/release/zeroclaw
-
-/usr/bin/time -l target/release/zeroclaw --help
-/usr/bin/time -l target/release/zeroclaw status
 ```
+
+`/usr/bin/time -l` profiling for the binary: [Quick start command reference](docs/setup-guides/quick-start-command-reference.md#benchmarking-local-memory--startup).
 
 ## Everything we built so far
 
@@ -403,25 +351,7 @@ ZeroClaw supports subscription-native auth profiles (multi-account, encrypted at
 - Encryption key: `~/.zeroclaw/.secret_key`
 - Profile id format: `<provider>:<profile_name>` (example: `openai-codex:work`)
 
-```bash
-# OpenAI Codex OAuth (ChatGPT subscription)
-zeroclaw auth login --provider openai-codex --device-code
-
-# Gemini OAuth
-zeroclaw auth login --provider gemini --profile default
-
-# Anthropic setup-token
-zeroclaw auth paste-token --provider anthropic --profile default --auth-kind authorization
-
-# Check / refresh / switch profile
-zeroclaw auth status
-zeroclaw auth refresh --provider openai-codex --profile default
-zeroclaw auth use --provider openai-codex --profile work
-
-# Run the agent with subscription auth
-zeroclaw agent --provider openai-codex -m "hello"
-zeroclaw agent --provider anthropic -m "hello"
-```
+Login, refresh, and `zeroclaw agent --provider …` examples: [Quick start command reference](docs/setup-guides/quick-start-command-reference.md#subscription-auth-oauth--tokens).
 
 ## Agent workspace + skills
 
@@ -437,73 +367,14 @@ Injected prompt files:
 Skills: `~/.zeroclaw/workspace/skills/<skill>/SKILL.md` or `SKILL.toml`.
 
 ```bash
-# List installed skills
 zeroclaw skills list
-
-# Install from git
-zeroclaw skills install https://github.com/user/my-skill.git
-
-# Security audit before install
-zeroclaw skills audit https://github.com/user/my-skill.git
-
-# Remove a skill
-zeroclaw skills remove my-skill
 ```
+
+Install, audit, and remove: [Quick start command reference](docs/setup-guides/quick-start-command-reference.md#skills).
 
 ## CLI commands
 
-```bash
-# Workspace management
-zeroclaw onboard              # Guided setup wizard
-zeroclaw status               # Show daemon/agent status
-zeroclaw doctor               # Run system diagnostics
-
-# Gateway + daemon
-zeroclaw gateway start        # Start gateway ([gateway] host/port; default 127.0.0.1:42617)
-zeroclaw gateway get-paircode # Show pairing code (gateway must already be running)
-zeroclaw daemon               # Start full autonomous runtime
-
-# Agent
-zeroclaw agent                # Interactive chat mode
-zeroclaw agent -m "message"   # Single message mode
-
-# Service management
-zeroclaw service install      # Install as OS service (launchd/systemd)
-zeroclaw service start|stop|restart|status
-
-# Channels
-zeroclaw channel list         # List configured channels
-zeroclaw channel doctor       # Check channel health
-zeroclaw channel bind-telegram 123456789
-
-# Cron + scheduling
-zeroclaw cron list            # List scheduled jobs
-zeroclaw cron add "*/5 * * * *" --agent "Check system health"
-zeroclaw cron remove <id>
-
-# Memory
-zeroclaw memory list          # List memory entries
-zeroclaw memory get <key>     # Retrieve a memory
-zeroclaw memory stats         # Memory statistics
-
-# Auth profiles
-zeroclaw auth login --provider <name>
-zeroclaw auth status
-zeroclaw auth use --provider <name> --profile <profile>
-
-# Hardware peripherals
-zeroclaw hardware discover    # Scan for connected devices
-zeroclaw peripheral list      # List connected peripherals
-zeroclaw peripheral flash     # Flash firmware to device
-
-# Migration
-zeroclaw migrate openclaw --dry-run
-zeroclaw migrate openclaw
-
-# Shell completions
-source <(zeroclaw completions bash)
-zeroclaw completions zsh > ~/.zfunc/_zeroclaw
-```
+Common invocations (gateway, agent, service, channels, cron, memory, migration): [Quick start command reference](docs/setup-guides/quick-start-command-reference.md#cli-cheat-sheet-common-workflows).
 
 Full commands reference: [docs/reference/cli/commands-reference.md](docs/reference/cli/commands-reference.md)
 
@@ -583,17 +454,7 @@ Building from source needs more resources than running the resulting binary:
 | **RAM + swap** | 2 GB    | 4 GB+       |
 | **Free disk**  | 6 GB    | 10 GB+      |
 
-If your host is below the minimum, use pre-built binaries:
-
-```bash
-./install.sh --prefer-prebuilt
-```
-
-To require binary-only install with no source fallback:
-
-```bash
-./install.sh --prebuilt-only
-```
+Pre-built install flags (`--prefer-prebuilt`, `--prebuilt-only`, and more): [one-click bootstrap](docs/setup-guides/one-click-bootstrap.md#resource-preflight-and-pre-built-flow).
 
 #### Optional
 

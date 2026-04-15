@@ -1,7 +1,7 @@
 # 评审者操作手册
 
 本操作手册是 [`pr-workflow.md`](./pr-workflow.zh-CN.md) 的运营配套文档。
-如需更广泛的文档导航，请使用 [`docs/README.md`](../../../README.zh-CN.md)。
+如需更广泛的文档导航，请使用 [`docs/README.md`](../../../README.md)。
 
 ## 0. 摘要
 
@@ -177,7 +177,7 @@
 
 ## 8. 相关文档
 
-- [README.md](../../../README.zh-CN.md) — 文档分类和导航。
+- [README.md](../../../README.md) — 文档分类和导航。
 - [pr-workflow.md](./pr-workflow.zh-CN.md) — 治理工作流和合并契约。
 - [ci-map.md](./ci-map.zh-CN.md) — CI 所有者和分类地图。
 - [actions-source-policy.md](./actions-source-policy.zh-CN.md) — Action 源白名单政策。

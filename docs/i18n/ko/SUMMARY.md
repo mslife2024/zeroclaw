@@ -6,8 +6,8 @@ Last synchronized: **March 6, 2026**.
 
 ## Entry Points
 
-- Korean docs hub: [README.md](README.md)
 - English docs hub: [../../README.md](../../README.md)
+- English project README: [../../../README.md](../../../README.md)
 - English unified summary: [../../SUMMARY.md](../../SUMMARY.md)
 
 ## Operator References (English Source)

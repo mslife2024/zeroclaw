@@ -5,10 +5,11 @@ For first-time setup and quick orientation.
 ## Start Path
 
 1. Main overview and quick start: [../../README.md](../../README.md)
-2. One-click setup and dual bootstrap mode: [one-click-bootstrap.md](one-click-bootstrap.md)
-3. Update or uninstall on macOS: [macos-update-uninstall.md](macos-update-uninstall.md)
-4. Find commands by tasks: [../reference/cli/commands-reference.md](../reference/cli/commands-reference.md)
-5. Tune shell execution tiers: [shell-profiles.md](shell-profiles.md)
+2. Detailed quick-start commands (flags, auth, cheat sheet): [quick-start-command-reference.md](quick-start-command-reference.md)
+3. One-click setup and dual bootstrap mode: [one-click-bootstrap.md](one-click-bootstrap.md)
+4. Update or uninstall on macOS: [macos-update-uninstall.md](macos-update-uninstall.md)
+5. Find commands by tasks: [../reference/cli/commands-reference.md](../reference/cli/commands-reference.md)
+6. Tune shell execution tiers: [shell-profiles.md](shell-profiles.md)
 
 ## Choose Your Path
 
@@ -18,7 +19,7 @@ For first-time setup and quick orientation.
 | I want guided prompts | `zeroclaw onboard` |
 | Config exists, just fix channels | `zeroclaw onboard --channels-only` |
 | Config exists, I intentionally want full overwrite | `zeroclaw onboard --force` |
-| Using subscription auth | See [Subscription Auth](../../README.md#subscription-auth-openai-codex--claude-code) |
+| Using subscription auth | [quick-start-command-reference.md](quick-start-command-reference.md#subscription-auth-oauth--tokens) (overview: [../../README.md](../../README.md#subscription-auth-openai-codex--claude-code)) |
 
 ## Onboarding and Validation
 

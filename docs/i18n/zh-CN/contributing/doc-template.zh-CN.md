@@ -51,7 +51,7 @@
 
 ## 6. 相关文档
 
-- [README.md](./README.zh-CN.md) — 文档分类和导航。
+- [README.md](../../../README.md) — 文档分类和导航。
 - <related-doc-1.md>
 - <related-doc-2.md>
 

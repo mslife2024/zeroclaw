@@ -8,10 +8,9 @@ Last refreshed: **February 21, 2026**.
 
 Use these i18n paths:
 
-- Root language landing: `README.<locale>.md`
+- Root project overview: `README.md` (English only)
 - Full localized docs tree: `docs/i18n/<locale>/...`
 - Optional compatibility shims at docs root:
-  - `docs/README.<locale>.md`
   - `docs/commands-reference.<locale>.md`
   - `docs/config-reference.<locale>.md`
   - `docs/troubleshooting.<locale>.md`
@@ -21,26 +20,15 @@ Use these i18n paths:
 | Locale | Root README | Canonical Docs Hub | Commands Ref | Config Ref | Troubleshooting | Status |
 |---|---|---|---|---|---|---|
 | `en` | `README.md` | `docs/README.md` | `docs/commands-reference.md` | `docs/config-reference.md` | `docs/troubleshooting.md` | Source of truth |
-| `zh-CN` | `README.zh-CN.md` | `docs/README.zh-CN.md` | - | - | - | Hub-level localized |
-| `ja` | `README.ja.md` | `docs/README.ja.md` | - | - | - | Hub-level localized |
-| `ru` | `README.ru.md` | `docs/README.ru.md` | - | - | - | Hub-level localized |
-| `fr` | `README.fr.md` | `docs/README.fr.md` | - | - | - | Hub-level localized |
-| `vi` | `README.vi.md` | `docs/i18n/vi/README.md` | `docs/i18n/vi/commands-reference.md` | `docs/i18n/vi/config-reference.md` | `docs/i18n/vi/troubleshooting.md` | Full tree localized |
+| `zh-CN` | `README.md` | `docs/README.md` | - | - | - | Partial articles under `docs/i18n/zh-CN/` |
+| `ja` | `README.md` | `docs/README.md` | - | - | - | Partial articles under `docs/i18n/ja/` |
+| `ru` | `README.md` | `docs/README.md` | - | - | - | Partial articles under `docs/i18n/ru/` |
+| `fr` | `README.md` | `docs/README.md` | - | - | - | Partial articles under `docs/i18n/fr/` |
+| `vi` | `README.md` | `docs/i18n/vi/README.md` | `docs/i18n/vi/commands-reference.md` | `docs/i18n/vi/config-reference.md` | `docs/i18n/vi/troubleshooting.md` | Full tree localized |
 
 ## Root README Completeness
 
-Not all root READMEs are full translations of `README.md`:
-
-| Locale | Style | Approximate Coverage |
-|---|---|---|
-| `en` | Full source | 100% |
-| `zh-CN` | Hub-style entry point | ~26% |
-| `ja` | Hub-style entry point | ~26% |
-| `ru` | Hub-style entry point | ~26% |
-| `fr` | Near-complete translation | ~90% |
-| `vi` | Near-complete translation | ~90% |
-
-Hub-style entry points provide quick-start orientation and language navigation but do not replicate the full English README content. This is an accurate status record, not a gap to be immediately resolved.
+The repository ships a single root `README.md` in English. Locale-specific marketing or hub-style root READMEs are not maintained.
 
 ## Collection Index i18n
 
@@ -55,22 +43,19 @@ Localized `README.md` files under collection directories (`docs/getting-started/
   - trait/type identifiers
 - Prefer concise, operator-oriented localization over literal translation.
 - Update "Last refreshed" / "Last synchronized" dates when localized pages change.
-- Ensure every localized hub has an "Other languages" section.
+- Full-tree locales (for example Vietnamese) should keep an "Other languages" section on their hub `README.md`.
 
 ## Adding a New Locale
 
-1. Create `README.<locale>.md`.
-2. Create canonical docs tree under `docs/i18n/<locale>/` (at least `README.md`, `commands-reference.md`, `config-reference.md`, `troubleshooting.md`).
-3. Add locale links to:
-   - root language nav in every `README*.md`
-   - localized hubs line in `docs/README.md`
-   - "Other languages" section in every `docs/README*.md`
+1. Create canonical docs tree under `docs/i18n/<locale>/` (at least `README.md`, `commands-reference.md`, `config-reference.md`, `troubleshooting.md` when doing a full tree).
+2. Add locale links to:
+   - "Other languages" sections in localized hubs where they exist
    - language entry section in `docs/SUMMARY.md`
-4. Optionally add docs-root shim files for backward compatibility.
-5. Update this file (`docs/i18n-coverage.md`) and run link validation.
+3. Optionally add docs-root shim files for backward compatibility.
+4. Update this file (`docs/maintainers/i18n-coverage.md`) and run link validation.
 
 ## Review Checklist
 
 - Links resolve for all localized entry files.
 - No locale references stale filenames (for example `README.vn.md`).
-- TOC (`docs/SUMMARY.md`) and docs hub (`docs/README.md`) include the locale.
+- TOC (`docs/SUMMARY.md`) and docs hub (`docs/README.md`) stay consistent with active locales.

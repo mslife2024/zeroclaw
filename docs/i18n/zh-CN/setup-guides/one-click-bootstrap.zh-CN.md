@@ -120,7 +120,7 @@ ZEROCLAW_API_KEY=\"sk-...\" ZEROCLAW_PROVIDER=\"openrouter\" ./install.sh
 
 ## 相关文档
 
-- [README.zh-CN.md](../../../README.zh-CN.md)
+- [README.md](../../../README.md)
 - [commands-reference.zh-CN.md](../reference/cli/commands-reference.zh-CN.md)
 - [providers-reference.zh-CN.md](../reference/api/providers-reference.zh-CN.md)
 - [channels-reference.zh-CN.md](../reference/api/channels-reference.zh-CN.md)

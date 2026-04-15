@@ -70,6 +70,7 @@ max_cost_per_day_cents = 1000
 require_approval_for_medium_risk = true
 block_high_risk_commands = true
 shell_env_passthrough = []
+# Merged on load with built-in auto_approve defaults (see docs/reference/api/config-reference.md).
 auto_approve = ["file_read", "memory_recall"]
 always_ask = []
 allowed_roots = []

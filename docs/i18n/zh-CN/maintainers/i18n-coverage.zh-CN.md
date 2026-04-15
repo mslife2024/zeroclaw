@@ -8,10 +8,9 @@
 
 使用以下国际化路径：
 
-- 根语言着陆页：`README.<语言区域>.md`
+- 根项目概览：`README.md`（仅英文）
 - 完整本地化文档树：`docs/i18n/<语言区域>/...`
 - 可选的兼容性垫片位于 docs 根目录：
-  - `docs/README.<语言区域>.md`
   - `docs/commands-reference.<语言区域>.md`
   - `docs/config-reference.<语言区域>.md`
   - `docs/troubleshooting.<语言区域>.md`
@@ -21,26 +20,15 @@
 | 语言区域 | 根 README | 规范文档中心 | 命令参考 | 配置参考 | 故障排除 | 状态 |
 |---|---|---|---|---|---|---|
 | `en` | `README.md` | `docs/README.md` | `docs/commands-reference.md` | `docs/config-reference.md` | `docs/troubleshooting.md` | 权威来源 |
-| `zh-CN` | `README.zh-CN.md` | `docs/README.zh-CN.md` | - | - | - | 中心级本地化 |
-| `ja` | `README.ja.md` | `docs/README.ja.md` | - | - | - | 中心级本地化 |
-| `ru` | `README.ru.md` | `docs/README.ru.md` | - | - | - | 中心级本地化 |
-| `fr` | `README.fr.md` | `docs/README.fr.md` | - | - | - | 中心级本地化 |
-| `vi` | `README.vi.md` | `docs/i18n/vi/README.md` | `docs/i18n/vi/commands-reference.md` | `docs/i18n/vi/config-reference.md` | `docs/i18n/vi/troubleshooting.md` | 完整树本地化 |
+| `zh-CN` | `README.md` | `docs/README.md` | - | - | - | `docs/i18n/zh-CN/` 下的部分文章 |
+| `ja` | `README.md` | `docs/README.md` | - | - | - | `docs/i18n/ja/` 下的部分文章 |
+| `ru` | `README.md` | `docs/README.md` | - | - | - | `docs/i18n/ru/` 下的部分文章 |
+| `fr` | `README.md` | `docs/README.md` | - | - | - | `docs/i18n/fr/` 下的部分文章 |
+| `vi` | `README.md` | `docs/i18n/vi/README.md` | `docs/i18n/vi/commands-reference.md` | `docs/i18n/vi/config-reference.md` | `docs/i18n/vi/troubleshooting.md` | 完整树本地化 |
 
 ## 根 README 完整性
 
-并非所有根 README 都是 `README.md` 的完整翻译：
-
-| 语言区域 | 风格 | 近似覆盖率 |
-|---|---|---|
-| `en` | 完整来源 | 100% |
-| `zh-CN` | 中心式入口点 | ~26% |
-| `ja` | 中心式入口点 | ~26% |
-| `ru` | 中心式入口点 | ~26% |
-| `fr` | 接近完整翻译 | ~90% |
-| `vi` | 接近完整翻译 | ~90% |
-
-中心式入口点提供快速入门指南和语言导航，但不复制完整的英文 README 内容。这是准确的状态记录，而非需要立即解决的缺口。
+仓库仅维护英文根目录 `README.md`。各语言不再提供单独的根级 README 变体。
 
 ## 分类索引国际化
 
@@ -55,22 +43,19 @@
   - 特征/类型标识符
 - 优先使用简洁的、面向运维的本地化，而非逐字翻译。
 - 本地化页面变更时更新"最后更新" / "最后同步"日期。
-- 确保每个本地化中心都有"其他语言"部分。
+- 完整目录树的本地化（例如越南文）应在其中心 `README.md` 上保留"其他语言"部分。
 
 ## 添加新的语言区域
 
-1. 创建 `README.<语言区域>.md`。
-2. 在 `docs/i18n/<语言区域>/` 下创建规范文档树（至少包含 `README.md`、`commands-reference.md`、`config-reference.md`、`troubleshooting.md`）。
-3. 添加语言区域链接到：
-   - 每个 `README*.md` 的根语言导航
-   - `docs/README.md` 中的本地化中心列表
-   - 每个 `docs/README*.md` 的"其他语言"部分
+1. 在 `docs/i18n/<语言区域>/` 下创建规范文档树（完整树时至少包含 `README.md`、`commands-reference.md`、`config-reference.md`、`troubleshooting.md`）。
+2. 添加语言区域链接到：
+   - 各本地化中心中已有的"其他语言"部分
    - `docs/SUMMARY.md` 中的语言入口部分
-4. 可选地添加 docs 根目录垫片文件以保持向后兼容性。
-5. 更新此文件（`docs/i18n-coverage.md`）并运行链接验证。
+3. 可选地添加 docs 根目录垫片文件以保持向后兼容性。
+4. 更新此文件（`docs/maintainers/i18n-coverage.md`）并运行链接验证。
 
 ## 评审检查清单
 
 - 所有本地化入口文件的链接可解析。
 - 没有语言区域引用过时的文件名（例如 `README.vn.md`）。
-- 目录（`docs/SUMMARY.md`）和文档中心（`docs/README.md`）包含该语言区域。
+- 目录（`docs/SUMMARY.md`）和文档中心（`docs/README.md`）与活跃语言区域保持一致。
