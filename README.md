@@ -117,8 +117,8 @@ Full beginner guide (auth, pairing, channels): [Getting started](docs/setup-guid
 ./install.sh --api-key "sk-..." --provider openrouter
 
 # Start the gateway (webhook server + web dashboard)
-zeroclaw gateway                # default: 127.0.0.1:42617
-zeroclaw gateway --port 0       # random port (security hardened)
+zeroclaw gateway                # same as `gateway start`; uses [gateway] host/port from config (default port 42617)
+zeroclaw gateway start --port 0 # random port (then read the bound port from logs/status)
 
 # Talk to the assistant
 zeroclaw agent -m "Hello, ZeroClaw!"
@@ -459,7 +459,8 @@ zeroclaw status               # Show daemon/agent status
 zeroclaw doctor               # Run system diagnostics
 
 # Gateway + daemon
-zeroclaw gateway              # Start gateway server (127.0.0.1:42617)
+zeroclaw gateway start        # Start gateway ([gateway] host/port; default 127.0.0.1:42617)
+zeroclaw gateway get-paircode # Show pairing code (gateway must already be running)
 zeroclaw daemon               # Start full autonomous runtime
 
 # Agent
@@ -477,7 +478,7 @@ zeroclaw channel bind-telegram 123456789
 
 # Cron + scheduling
 zeroclaw cron list            # List scheduled jobs
-zeroclaw cron add "*/5 * * * *" --prompt "Check system health"
+zeroclaw cron add "*/5 * * * *" --agent "Check system health"
 zeroclaw cron remove <id>
 
 # Memory

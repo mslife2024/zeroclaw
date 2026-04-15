@@ -209,7 +209,7 @@ max_concurrent = 4
 # ── Agent & pacing ──────────────────────────────────────────────
 [agent]
 compact_context = true
-max_tool_iterations = 20
+max_tool_iterations = 10
 max_history_messages = 50
 max_context_tokens = 32000
 parallel_tools = false

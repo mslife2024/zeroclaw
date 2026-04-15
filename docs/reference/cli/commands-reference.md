@@ -4,13 +4,19 @@ This reference is derived from the current CLI surface (`zeroclaw --help`).
 
 Last verified: **April 15, 2026**.
 
+## Global options
+
+- `--config-dir <DIR>` — alternate ZeroClaw config/workspace root (accepted on the top-level command and propagated to subcommands).
+
 ## Top-Level Commands
+
+Order matches `zeroclaw --help`.
 
 | Command | Purpose |
 |---|---|
 | `onboard` | Initialize workspace/config quickly or interactively |
 | `agent` | Run interactive chat or single-message mode |
-| `gateway` | Start webhook and WhatsApp HTTP gateway |
+| `gateway` | Start or manage the HTTP/WebSocket gateway (webhooks, pairing, websockets) |
 | `daemon` | Start supervised runtime (gateway + channels + optional heartbeat/scheduler) |
 | `service` | Manage user-level OS service lifecycle |
 | `doctor` | Run diagnostics and freshness checks |
@@ -23,12 +29,20 @@ Last verified: **April 15, 2026**.
 | `integrations` | Inspect integration details |
 | `skills` | List/install/remove skills |
 | `migrate` | Import from external runtimes (currently OpenClaw) |
-| `config` | Export machine-readable config schema |
-| `mcp` | Run ZeroClaw as an MCP tool server (stdio or HTTP) |
-| `shell` | Set the shell execution profile in `config.toml` (restart required) |
-| `completions` | Generate shell completion scripts to stdout |
+| `auth` | Manage provider subscription authentication profiles (OAuth, tokens, profiles) |
 | `hardware` | Discover and introspect USB hardware |
 | `peripheral` | Configure and flash peripherals |
+| `memory` | List, get, clear, or summarize stored agent memory |
+| `shell` | Set the shell execution profile in `config.toml` (restart required) |
+| `mcp` | Run ZeroClaw as an MCP tool server (stdio or HTTP) |
+| `config` | Export machine-readable config schema |
+| `update` | Check for and install binary releases |
+| `self-test` | Run installation self-tests (optional `--quick` to skip network) |
+| `completions` | Generate shell completion scripts to stdout |
+| `hands` | List or run autonomous hand packages under `~/.zeroclaw/hands/` |
+| `desktop` | Launch or install the companion desktop app |
+
+Builds compiled with the **`plugins-wasm`** Cargo feature also expose `plugin` (WASM plugin lifecycle); it is omitted from stock release help.
 
 ## Command Groups
 
@@ -64,8 +78,16 @@ Tip:
 
 ### `gateway` / `daemon`
 
-- `zeroclaw gateway [--host <HOST>] [--port <PORT>]`
-- `zeroclaw daemon [--host <HOST>] [--port <PORT>]`
+Gateway:
+
+- `zeroclaw gateway` — if no subcommand is given, starts the gateway using **`[gateway].host` / `[gateway].port`** from config only (no extra CLI flags on the bare command).
+- `zeroclaw gateway start [--port <PORT>] [--host <HOST>]`
+- `zeroclaw gateway restart [--port <PORT>] [--host <HOST>]` — tries graceful shutdown of an existing instance on that address, then starts.
+- `zeroclaw gateway get-paircode [--new]` — read or rotate pairing code from a **running** gateway.
+
+Daemon:
+
+- `zeroclaw daemon [--host <HOST>] [--port <PORT>]` — full long-running runtime (uses gateway host/port overrides when passed).
 
 ### `mcp`
 
@@ -108,13 +130,16 @@ Notes:
 - `zeroclaw service status`
 - `zeroclaw service uninstall`
 
+Service commands accept `--service-init auto|systemd|openrc` (default `auto`) to pin the init backend.
+
 ### `cron`
 
 - `zeroclaw cron list`
-- `zeroclaw cron add <expr> [--tz <IANA_TZ>] <command>`
-- `zeroclaw cron add-at <rfc3339_timestamp> <command>`
-- `zeroclaw cron add-every <every_ms> <command>`
-- `zeroclaw cron once <delay> <command>`
+- `zeroclaw cron add <expr> [--tz <IANA_TZ>] [--agent] [--allowed-tool <NAME> …] <command-or-prompt>`
+- `zeroclaw cron add-at <rfc3339_timestamp> [--agent] [--allowed-tool <NAME> …] <command-or-prompt>`
+- `zeroclaw cron add-every <every_ms> [--agent] [--allowed-tool <NAME> …] <command-or-prompt>`
+- `zeroclaw cron once <delay> [--agent] [--allowed-tool <NAME> …] <command-or-prompt>` — delay examples: `30m`, `2h`, `1d`
+- `zeroclaw cron update <id> [--expression <EXPR>] [--tz <TZ>] [--command <CMD>] [--name <NAME>] [--allowed-tool <NAME> …]`
 - `zeroclaw cron remove <id>`
 - `zeroclaw cron pause <id>`
 - `zeroclaw cron resume <id>`
@@ -122,7 +147,8 @@ Notes:
 Notes:
 
 - Mutating schedule/cron actions require `cron.enabled = true`.
-- Shell command payloads for schedule creation (`create` / `add` / `once`) are validated by security command policy before job persistence. The scheduler also applies **`[shell]` Safe-tier** string checks (`[shell.safe].forbidden_paths` + null-byte rule), independent of `shell.profile`, while using `shell.timeout_secs` and `shell.login_shell` when the job runs.
+- Use `--agent` so the payload is treated as an **agent prompt** instead of a shell string (repeatable `--allowed-tool` applies only to agent jobs).
+- Shell command payloads for schedule creation (`add` / `add-at` / `add-every` / `once`) are validated by security command policy before job persistence. The scheduler also applies **`[shell]` Safe-tier** string checks (`[shell.safe].forbidden_paths` + null-byte rule), independent of `shell.profile`, while using `shell.timeout_secs` and `shell.login_shell` when the job runs.
 
 ### `models`
 
@@ -196,11 +222,55 @@ Skill manifests (`SKILL.toml`) support `prompts` and `[[tools]]`; both are injec
 
 - `zeroclaw migrate openclaw [--source <path>] [--dry-run]`
 
+### `auth`
+
+- `zeroclaw auth login --provider <openai-codex|gemini> [--profile <NAME>] [--device-code]`
+- `zeroclaw auth login --provider openai-codex --import <PATH>` (import existing `auth.json`; conflicts with `--device-code`)
+- `zeroclaw auth paste-redirect --provider openai-codex [--profile <NAME>] [--input <URL_OR_CODE>]`
+- `zeroclaw auth paste-token --provider anthropic [--profile <NAME>] [--token <VALUE>] [--auth-kind <authorization|api-key>]` (token omitted → interactive prompt)
+- `zeroclaw auth setup-token --provider anthropic [--profile <NAME>]` — alias for `paste-token` oriented at interactive setup
+- `zeroclaw auth refresh --provider openai-codex [--profile <NAME>]`
+- `zeroclaw auth logout --provider <NAME> [--profile <NAME>]`
+- `zeroclaw auth use --provider <NAME> --profile <NAME>`
+- `zeroclaw auth list`
+- `zeroclaw auth status`
+
+Use `zeroclaw auth <subcommand> --help` for the full flag set.
+
+### `memory`
+
+- `zeroclaw memory list` (filters: see `zeroclaw memory list --help`)
+- `zeroclaw memory get <key>`
+- `zeroclaw memory stats`
+- `zeroclaw memory clear` (scopes and `--yes`; see `--help`)
+
 ### `config`
 
 - `zeroclaw config schema`
 
 `config schema` prints a JSON Schema (draft 2020-12) for the full `config.toml` contract to stdout.
+
+### `update`
+
+- `zeroclaw update` — download and install latest release (with confirmation)
+- `zeroclaw update --check` — check only
+- `zeroclaw update --force` — skip confirmation
+- `zeroclaw update --version <SEMVER>` — install a specific version
+
+### `self-test`
+
+- `zeroclaw self-test` — full suite (includes network-oriented checks when available)
+- `zeroclaw self-test --quick` — skip network checks
+
+### `hands`
+
+- `zeroclaw hands list`
+- `zeroclaw hands run <name>` — `name` is the `name` field from a hand TOML under `~/.zeroclaw/hands/`
+
+### `desktop`
+
+- `zeroclaw desktop` — launch the companion app
+- `zeroclaw desktop --install` — download and install the pre-built app for this platform
 
 ### `completions`
 
@@ -232,5 +302,6 @@ To verify docs against your current binary quickly:
 
 ```bash
 zeroclaw --help
+zeroclaw --config-dir /path/to/workspace --help
 zeroclaw <command> --help
 ```

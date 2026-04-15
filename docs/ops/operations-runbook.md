@@ -20,7 +20,7 @@ For first-time installation, start from [one-click-bootstrap.md](../setup-guides
 | Mode | Command | When to use |
 |---|---|---|
 | Foreground runtime | `zeroclaw daemon` | local debugging, short-lived sessions |
-| Foreground gateway only | `zeroclaw gateway` | webhook endpoint testing |
+| Foreground gateway only | `zeroclaw gateway` or `zeroclaw gateway start` | webhook endpoint testing (same bind; use `start` when passing `--host` / `--port`) |
 | User service | `zeroclaw service install && zeroclaw service start` | persistent operator-managed runtime |
 | Docker / Podman | `docker compose up -d` | containerized deployment |
 

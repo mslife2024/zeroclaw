@@ -38,7 +38,7 @@ Run the daemon or gateway and expose the webhook endpoint:
 ```bash
 zeroclaw daemon
 # or
-zeroclaw gateway --host 127.0.0.1 --port 3000
+zeroclaw gateway start --host 127.0.0.1 --port 3000
 ```
 
 Configure your Nextcloud Talk bot webhook URL to:
