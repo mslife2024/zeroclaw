@@ -18,6 +18,7 @@ Localized hubs:
 | Check config defaults and keys quickly | [config-reference.md](reference/api/config-reference.md) |
 | Configure custom providers/endpoints | [custom-providers.md](contributing/custom-providers.md) |
 | Configure Z.AI / GLM provider | [zai-glm-setup.md](setup-guides/zai-glm-setup.md) |
+| Tune shell safety tiers (profiles) | [shell-profiles.md](setup-guides/shell-profiles.md) |
 | Use LangGraph integration patterns | [langgraph-integration.md](contributing/langgraph-integration.md) |
 | Operate runtime (day-2 runbook) | [operations-runbook.md](ops/operations-runbook.md) |
 | Troubleshoot install/runtime/channel issues | [troubleshooting.md](ops/troubleshooting.md) |
@@ -57,6 +58,7 @@ Localized hubs:
 - [config-reference.md](reference/api/config-reference.md) — high-signal config keys and secure defaults
 - [custom-providers.md](contributing/custom-providers.md) — custom provider/base URL integration templates
 - [zai-glm-setup.md](setup-guides/zai-glm-setup.md) — Z.AI/GLM setup and endpoint matrix
+- [shell-profiles.md](setup-guides/shell-profiles.md) — shell engine profiles (`safe` / `balanced` / `autonomous`) and switching
 - [langgraph-integration.md](contributing/langgraph-integration.md) — fallback integration for model/tool-calling edge cases
 - [operations-runbook.md](ops/operations-runbook.md) — day-2 runtime operations and rollback flow
 - [troubleshooting.md](ops/troubleshooting.md) — common failure signatures and recovery steps

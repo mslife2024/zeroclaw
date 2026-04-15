@@ -8,6 +8,7 @@ For first-time setup and quick orientation.
 2. One-click setup and dual bootstrap mode: [one-click-bootstrap.md](one-click-bootstrap.md)
 3. Update or uninstall on macOS: [macos-update-uninstall.md](macos-update-uninstall.md)
 4. Find commands by tasks: [../reference/cli/commands-reference.md](../reference/cli/commands-reference.md)
+5. Tune shell execution tiers: [shell-profiles.md](shell-profiles.md)
 
 ## Choose Your Path
 
@@ -32,3 +33,4 @@ For first-time setup and quick orientation.
 - Runtime operations: [../ops/README.md](../ops/README.md)
 - Reference catalogs: [../reference/README.md](../reference/README.md)
 - macOS lifecycle tasks: [macos-update-uninstall.md](macos-update-uninstall.md)
+- Shell profiles (`safe` / `balanced` / `autonomous`): [shell-profiles.md](shell-profiles.md)
