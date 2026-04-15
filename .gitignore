@@ -2,6 +2,7 @@
 /target-*/
 firmware/*/target
 web/dist/*
+web/dist/
 !web/dist/.gitkeep
 *.db
 *.db-journal
@@ -49,3 +50,4 @@ lcov.info
 
 # Wrangler cache
 .wrangler/
+web/dist/
