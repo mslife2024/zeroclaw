@@ -13,7 +13,7 @@ Profiles trade **freedom vs. guardrails** for the *shell string* the model sends
 | Profile | Role |
 |--------|------|
 | **safe** | Default. Minimal extra checks beyond your security policy and global rules (for example extra forbidden paths from `[shell.safe]`). |
-| **balanced** | Adds a **maximum command length** and keeps the balanced pipeline ready for future options (see `[shell.balanced]` in config reference). |
+| **balanced** | Adds a **256 KiB** cap on the raw command string and keeps the balanced pipeline ready for future options (see `[shell.balanced]` in config reference). |
 | **autonomous** | Same baseline as balanced, plus autonomous-only tuning in `[shell.autonomous]`. With a build that enables the **`shell-full`** Cargo feature, an extra pattern-based validator may run (see below). |
 
 Profile names are matched case-insensitively after trim.
@@ -51,7 +51,7 @@ forbidden_paths = []
 
 [shell.autonomous]
 max_validators = 64
-spill_threshold_bytes = 0
+spill_threshold_bytes = 0  # reserved; engine still truncates at ~1 MB
 ```
 
 - **`timeout_secs`** — Wall-clock limit per shell run (must be greater than zero).
@@ -89,7 +89,7 @@ Older configs used `[shell_tool]`. On load, if **`[shell]` is missing** and `[sh
 
 - The **`shell`** tool used by the agent.
 - **Skill** shell execution (same engine instance).
-- **Cron** scheduling uses a small helper that respects `[shell].login_shell` and `[shell.safe].forbidden_paths` (plus basic sanity checks); the scheduler still enforces the broader security model for jobs—do not assume cron is “weaker” than the rest of the stack.
+- **Cron** scheduling uses a helper that always applies **Safe-tier** shell string checks (`[shell.safe].forbidden_paths` + null-byte rule) **regardless of `shell.profile`**, while still using `[shell].login_shell` and `[shell].timeout_secs` when the job runs. The scheduler still enforces the broader security model for jobs—do not assume cron is “weaker” than the rest of the stack.
 
 ## `shell-full` builds
 

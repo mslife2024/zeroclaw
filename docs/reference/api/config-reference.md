@@ -2,7 +2,7 @@
 
 This is a high-signal reference for common config sections and defaults.
 
-Last verified: **April 2, 2026**.
+Last verified: **April 15, 2026**.
 
 Config path resolution at startup:
 
@@ -534,21 +534,44 @@ allowed_roots = ["~/Desktop/projects", "/opt/shared-repo"]
 
 ## `[shell]`
 
-Unified shell execution engine (profiles). **Autonomy** (`[autonomy].level`, allowlists, risk gates) is still enforced after profile-specific checks.
+Unified shell execution engine (**profile-driven validators** and rewriters) layered on top of **`[autonomy]`** and the runtime security policy. Changing `shell.profile`, `login_shell`, or profile tables requires a **process restart** (CLI agent, gateway, daemon, or MCP server); there is no hot reload for the shell engine.
 
 | Key | Default | Purpose |
 |---|---|---|
 | `profile` | `safe` | `safe`, `balanced`, `autonomous`, or a custom id from `[[shell.profiles]]` |
-| `timeout_secs` | `60` | kill a shell command after this many seconds |
-| `login_shell` | `false` | when `true`, Unix uses `sh -lc` instead of `sh -c` (Windows ignores) |
+| `timeout_secs` | `60` | wall-clock limit for one shell invocation (kills the subprocess on expiry) |
+| `login_shell` | `false` | when `true`, Unix uses `sh -lc` instead of `sh -c` (Windows always uses `cmd.exe /C`; this flag does not apply) |
 
-Optional tables:
+### Profile behavior (agent `shell` tool and skill shell)
 
-- **`[shell.safe]`** — `forbidden_paths` (`[]`): extra path substrings blocked before execution (in addition to `[autonomy].forbidden_paths`).
-- **`[shell.balanced]`** — reserved (`snapshot_enabled`, etc.).
-- **`[shell.autonomous]`** — `max_validators`, `spill_threshold_bytes` (reserved / partial wiring).
+All profiles still run **`[autonomy]`** checks (level, `allowed_commands`, path rules, approval gates) after profile-local validation.
 
-Custom profiles:
+| Profile | Extra behavior (in addition to shared policy) |
+|---|---|
+| `safe` | Optional `[shell.safe].forbidden_paths` substring guard on the command string; null-byte rejection. |
+| `balanced` | Same as `safe`, plus a **256 KiB** cap on the raw command string length; rewriter stage is wired (currently **identity** — no transform). |
+| `autonomous` | Same as `balanced`. When the binary is built with Cargo feature **`shell-full`**, an additional small set of pattern validators may register (for example blocking `| sh`-style pipelines). `[shell.autonomous].max_validators` (default `64`) caps how many extras are attached. |
+
+Sub-tables:
+
+| Table | Keys | Notes |
+|---|---|---|
+| `[shell.safe]` | `forbidden_paths` (`[]`) | Extra path **substrings** rejected in the command string before execution, in addition to `[autonomy].forbidden_paths` / workspace rules. |
+| `[shell.balanced]` | `snapshot_enabled` (`false`) | **Reserved** for future env snapshot behavior; not read today. |
+| `[shell.autonomous]` | `max_validators` (`64`), `spill_threshold_bytes` (`0`) | `max_validators` limits optional **`shell-full`** validators. **`spill_threshold_bytes` is reserved** (accepted in config, not used by the engine yet); combined stdout/stderr are still truncated at **~1 MB** in the shell engine. |
+
+Tool output (success or failure) is prefixed with a short status line such as `Profile: … | Validators: N` so operators can see which tier ran.
+
+**Cron / scheduler:** persisted shell jobs are validated with **Safe-tier** checks only (`[shell.safe].forbidden_paths` + null-byte rule), regardless of `shell.profile`. The job process still uses `shell.timeout_secs` and `shell.login_shell` when executed.
+
+### `[[shell.profiles]]`
+
+| Field | Required | Purpose |
+|---|---|---|
+| `id` | yes | Name referenced by `shell.profile` (case-insensitive match after trim). |
+| `extends` | no (`safe`) | Base tier: `safe`, `balanced`, or `autonomous`. |
+
+Example:
 
 ```toml
 [[shell.profiles]]
@@ -559,6 +582,8 @@ extends = "autonomous"
 **Migration:** legacy `[shell_tool]` in `config.toml` is migrated automatically on load to `[shell]` with `profile = "safe"` and the prior `timeout_secs` when present. A one-time backup `config.toml.bak.<unix_ts>` may be written. Remove any leftover `[shell_tool]` header manually.
 
 **Environment override:** `ZEROCLAW_SHELL_PROFILE` sets `shell.profile` after the file is loaded (same validation rules).
+
+**Subprocess environment:** the shell tool clears the environment and copies a small **safe allowlist** plus any names listed in `[autonomy].shell_env_passthrough` (see [`src/shell/env.rs`](../../../src/shell/env.rs) for the built-in set).
 
 ## `[memory]`
 

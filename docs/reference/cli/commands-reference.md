@@ -122,7 +122,7 @@ Notes:
 Notes:
 
 - Mutating schedule/cron actions require `cron.enabled = true`.
-- Shell command payloads for schedule creation (`create` / `add` / `once`) are validated by security command policy before job persistence.
+- Shell command payloads for schedule creation (`create` / `add` / `once`) are validated by security command policy before job persistence. The scheduler also applies **`[shell]` Safe-tier** string checks (`[shell.safe].forbidden_paths` + null-byte rule), independent of `shell.profile`, while using `shell.timeout_secs` and `shell.login_shell` when the job runs.
 
 ### `models`
 

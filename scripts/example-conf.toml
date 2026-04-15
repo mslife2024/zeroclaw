@@ -819,3 +819,18 @@ max_finished_runs = 100
 [shell]
 profile = "safe"
 timeout_secs = 60
+# login_shell = false  # Unix: false = sh -c, true = sh -lc (ignored on Windows)
+
+# [shell.safe]
+# forbidden_paths = []
+
+# [shell.balanced]
+# snapshot_enabled = false  # reserved
+
+# [shell.autonomous]
+# max_validators = 64
+# spill_threshold_bytes = 0  # reserved (not used by engine yet)
+
+# [[shell.profiles]]
+# id = "research"
+# extends = "autonomous"
