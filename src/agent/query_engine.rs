@@ -4,6 +4,7 @@
 //! [`run_query_loop`], which records transitions and runs post-turn stop hooks.
 
 use super::state::{EngineState, TurnTransition, TransitionReason};
+use super::TurnEventSink;
 use crate::approval::ApprovalManager;
 use crate::hooks::{HookResult, HookRunner};
 use crate::observability::Observer;
@@ -82,7 +83,7 @@ pub(crate) async fn run_query_loop(
     multimodal_config: &crate::config::MultimodalConfig,
     max_tool_iterations: usize,
     cancellation_token: Option<CancellationToken>,
-    on_delta: Option<tokio::sync::mpsc::Sender<String>>,
+    turn_event_sink: Option<tokio::sync::mpsc::Sender<TurnEventSink>>,
     hooks: Option<&HookRunner>,
     excluded_tools: &[String],
     dedup_exempt_tools: &[String],
@@ -110,7 +111,7 @@ pub(crate) async fn run_query_loop(
         multimodal_config,
         max_tool_iterations,
         cancellation_token,
-        on_delta,
+        turn_event_sink,
         hooks,
         excluded_tools,
         dedup_exempt_tools,

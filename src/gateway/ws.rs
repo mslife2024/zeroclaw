@@ -6,9 +6,10 @@
 //! ```text
 //! Server -> Client: {"type":"session_start","session_id":"...","name":"...","resumed":true,"message_count":42}
 //! Client -> Server: {"type":"message","content":"Hello"}
-//! Server -> Client: {"type":"chunk","content":"Hi! "}
+//! Server -> Client: {"type":"chunk","content":"..."}   // LLM deltas + optional tool-loop progress (TurnEventSink)
 //! Server -> Client: {"type":"tool_call","name":"shell","args":{...}}
 //! Server -> Client: {"type":"tool_result","name":"shell","output":"..."}
+//! Server -> Client: {"type":"chunk_reset"}
 //! Server -> Client: {"type":"done","full_response":"..."}
 //! ```
 //!
@@ -441,7 +442,7 @@ async fn process_chat_message(
     content: &str,
     session_key: &str,
 ) {
-    use crate::agent::TurnEvent;
+    use crate::agent::{TurnEvent, TurnEventSink};
 
     let provider_label = state
         .config
@@ -458,7 +459,7 @@ async fn process_chat_message(
     }));
 
     // Channel for streaming turn events from the agent.
-    let (event_tx, mut event_rx) = tokio::sync::mpsc::channel::<TurnEvent>(64);
+    let (event_tx, mut event_rx) = tokio::sync::mpsc::channel::<TurnEventSink>(64);
 
     // Run the streamed turn concurrently: the agent produces events
     // while we forward them to the WebSocket below.  We cannot move
@@ -471,15 +472,18 @@ async fn process_chat_message(
     // Drive both futures concurrently: the agent turn produces events
     // and we relay them over WebSocket.
     let forward_fut = async {
-        while let Some(event) = event_rx.recv().await {
-            let ws_msg = match event {
-                TurnEvent::Chunk { delta } => {
+        while let Some(item) = event_rx.recv().await {
+            let ws_msg = match item {
+                TurnEventSink::DeltaText(delta) => {
                     serde_json::json!({ "type": "chunk", "content": delta })
                 }
-                TurnEvent::ToolCall { name, args } => {
+                TurnEventSink::Emit(TurnEvent::Chunk { delta }) => {
+                    serde_json::json!({ "type": "chunk", "content": delta })
+                }
+                TurnEventSink::Emit(TurnEvent::ToolCall { name, args }) => {
                     serde_json::json!({ "type": "tool_call", "name": name, "args": args })
                 }
-                TurnEvent::ToolResult { name, output } => {
+                TurnEventSink::Emit(TurnEvent::ToolResult { name, output }) => {
                     serde_json::json!({ "type": "tool_result", "name": name, "output": output })
                 }
             };

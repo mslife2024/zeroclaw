@@ -19,10 +19,10 @@ use std::io::Write as IoWrite;
 use std::sync::Arc;
 use std::time::Instant;
 
-/// Events emitted during a streamed agent turn.
+/// Structured events during a streamed agent turn (tool calls, results, text).
 ///
-/// Consumers receive these through a `tokio::sync::mpsc::Sender<TurnEvent>`
-/// passed to [`Agent::turn_streamed`].
+/// WebSocket and similar transports typically receive these inside
+/// [`TurnEventSink::Emit`] from [`Agent::turn_streamed`].
 #[derive(Debug, Clone)]
 pub enum TurnEvent {
     /// A text chunk from the LLM response (may arrive many times).
@@ -34,6 +34,17 @@ pub enum TurnEvent {
     },
     /// A tool has returned a result.
     ToolResult { name: String, output: String },
+}
+
+/// Unified stream item from the tool-call loop and streamed gateway turns.
+///
+/// [`TurnEventSink::DeltaText`] carries legacy draft/progress strings (including
+/// [`crate::agent::loop_::DRAFT_CLEAR_SENTINEL`]). [`TurnEventSink::Emit`] carries
+/// structured [`TurnEvent`] values for WebSocket and other typed consumers.
+#[derive(Debug, Clone)]
+pub enum TurnEventSink {
+    DeltaText(String),
+    Emit(TurnEvent),
 }
 
 pub struct Agent {
@@ -950,8 +961,8 @@ impl Agent {
 
     /// Execute a single agent turn while streaming intermediate events.
     ///
-    /// Behaves identically to [`turn`](Self::turn) but forwards [`TurnEvent`]s
-    /// through the provided channel so callers (e.g. the WebSocket gateway)
+    /// Behaves identically to [`turn`](Self::turn) but forwards [`TurnEventSink`]
+    /// items through the provided channel so callers (e.g. the WebSocket gateway)
     /// can relay incremental updates to clients.
     ///
     /// The returned `String` is the final, complete assistant response — the
@@ -959,7 +970,7 @@ impl Agent {
     pub async fn turn_streamed(
         &mut self,
         user_message: &str,
-        event_tx: tokio::sync::mpsc::Sender<TurnEvent>,
+        event_tx: tokio::sync::mpsc::Sender<TurnEventSink>,
     ) -> Result<String> {
         // ── Preamble (aligned with [`turn`](Self::turn): transcript-first) ──
         if self.history.is_empty() {
@@ -1085,7 +1096,11 @@ impl Agent {
                         if !chunk.delta.is_empty() {
                             got_stream = true;
                             streamed_text.push_str(&chunk.delta);
-                            let _ = event_tx.send(TurnEvent::Chunk { delta: chunk.delta }).await;
+                            let _ = event_tx
+                                .send(TurnEventSink::Emit(TurnEvent::Chunk {
+                                    delta: chunk.delta,
+                                }))
+                                .await;
                         }
                     }
                     Err(_) => break,
@@ -1149,9 +1164,9 @@ impl Agent {
                 // If we didn't stream, send the full response as a single chunk
                 if !got_stream && !final_text.is_empty() {
                     let _ = event_tx
-                        .send(TurnEvent::Chunk {
+                        .send(TurnEventSink::Emit(TurnEvent::Chunk {
                             delta: final_text.clone(),
-                        })
+                        }))
                         .await;
                 }
 
@@ -1184,10 +1199,10 @@ impl Agent {
             // Notify about each tool call
             for call in &calls {
                 let _ = event_tx
-                    .send(TurnEvent::ToolCall {
+                    .send(TurnEventSink::Emit(TurnEvent::ToolCall {
                         name: call.name.clone(),
                         args: call.arguments.clone(),
-                    })
+                    }))
                     .await;
             }
 
@@ -1196,10 +1211,10 @@ impl Agent {
             // Notify about each tool result
             for result in &results {
                 let _ = event_tx
-                    .send(TurnEvent::ToolResult {
+                    .send(TurnEventSink::Emit(TurnEvent::ToolResult {
                         name: result.name.clone(),
                         output: result.output.clone(),
-                    })
+                    }))
                     .await;
             }
 

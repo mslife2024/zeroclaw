@@ -23,6 +23,6 @@ pub mod tool_router;
 mod tests;
 
 #[allow(unused_imports)]
-pub use agent::{Agent, AgentBuilder, TurnEvent};
+pub use agent::{Agent, AgentBuilder, TurnEvent, TurnEventSink};
 #[allow(unused_imports)]
 pub use loop_::{process_message, run};

@@ -2624,7 +2624,7 @@ async fn process_channel_message(
     );
 
     let (delta_tx, delta_rx) = if use_streaming {
-        let (tx, rx) = tokio::sync::mpsc::channel::<String>(64);
+        let (tx, rx) = tokio::sync::mpsc::channel::<crate::agent::TurnEventSink>(64);
         (Some(tx), Some(rx))
     } else {
         (None, None)
@@ -2661,7 +2661,11 @@ async fn process_channel_message(
         let draft_id = draft_id_ref.to_string();
         Some(tokio::spawn(async move {
             let mut accumulated = String::new();
-            while let Some(delta) = rx.recv().await {
+            while let Some(item) = rx.recv().await {
+                let delta = match item {
+                    crate::agent::TurnEventSink::DeltaText(s) => s,
+                    crate::agent::TurnEventSink::Emit(_) => continue,
+                };
                 if delta == crate::agent::loop_::DRAFT_CLEAR_SENTINEL {
                     accumulated.clear();
                     continue;

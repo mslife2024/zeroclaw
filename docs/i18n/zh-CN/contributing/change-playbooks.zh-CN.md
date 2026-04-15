@@ -52,6 +52,7 @@ ZeroClaw 常见扩展和修改模式的分步指南。
 - **转录优先：** 会话 JSONL 的用户行应在模型工作之前于编排边界通过 `session_transcript::commit_user_turn` 落盘（渠道与 `Agent::turn` / `turn_streamed` 遵循此模式）。
 - **钩子运行器构建：** `crate::hooks::hook_runner_from_config`（`src/hooks/mod.rs`）在 `[hooks].enabled` 时注册内置钩子；只要 `memory.auto_save` 为 true 即注册 **`MemoryConsolidationHook`**（即使钩子总开关关闭），从而避免在渠道侧重复 `tokio::spawn` 合并逻辑。
 - **网关：** 在 `run_gateway` 中构建 `HookRunner`，存入 `AppState.hooks`，并将 `state.hooks.clone()` 传入 `Agent::from_config_with_hooks`，使 `/ws/chat` 的回合后钩子与渠道行为一致。
+- **流式回合 sink：** `run_tool_call_loop` / `run_query_loop` 可选传入 `turn_event_sink`（`Sender<TurnEventSink>`）：[`TurnEventSink::DeltaText`](../../../../src/agent/agent.rs) 承载工具循环草稿与进度字符串；[`TurnEventSink::Emit`](../../../../src/agent/agent.rs) 包装 [`TurnEvent`](../../../../src/agent/agent.rs) 以传递模型片段与工具遥测。`Agent::turn_streamed` 使用同一类型；[`src/gateway/ws.rs`](../../../../src/gateway/ws.rs) 将二者映射为 WebSocket JSON（`chunk`、`tool_call`、`tool_result`，随后 `chunk_reset` 与 `done`）。面向用户的协议说明见 [`.claude/skills/zeroclaw/references/rest-api.md`](../../../../.claude/skills/zeroclaw/references/rest-api.md)。
 - **扩展回合后行为：** 实现 `HookHandler::on_after_turn_completed` / `after_turn_completed_blocking`（参数为 `user_message` 与 `assistant_summary`）；在与网关或渠道相同的 `HookRunner` 上注册。
 
 ## 架构边界规则

@@ -1,3 +1,4 @@
+use crate::agent::{TurnEvent, TurnEventSink};
 use crate::approval::{ApprovalManager, ApprovalRequest, ApprovalResponse};
 use crate::config::schema::ModelPricing;
 use crate::config::Config;
@@ -363,9 +364,27 @@ pub(crate) fn estimate_history_tokens(history: &[ChatMessage]) -> usize {
 /// Minimum interval between progress sends to avoid flooding the draft channel.
 pub(crate) const PROGRESS_MIN_INTERVAL_MS: u64 = 500;
 
-/// Sentinel value sent through on_delta to signal the draft updater to clear accumulated text.
+/// Sentinel value sent as [`TurnEventSink::DeltaText`] to signal the draft updater to clear accumulated text.
 /// Used before streaming the final answer so progress lines are replaced by the clean response.
 pub(crate) const DRAFT_CLEAR_SENTINEL: &str = "\x00CLEAR\x00";
+
+async fn send_turn_sink_str(
+    sink: &Option<tokio::sync::mpsc::Sender<TurnEventSink>>,
+    text: String,
+) {
+    if let Some(tx) = sink {
+        let _ = tx.send(TurnEventSink::DeltaText(text)).await;
+    }
+}
+
+async fn send_turn_sink_emit(
+    sink: &Option<tokio::sync::mpsc::Sender<TurnEventSink>>,
+    event: TurnEvent,
+) {
+    if let Some(tx) = sink {
+        let _ = tx.send(TurnEventSink::Emit(event)).await;
+    }
+}
 
 tokio::task_local! {
     pub(crate) static TOOL_CHOICE_OVERRIDE: Option<String>;
@@ -2665,7 +2684,7 @@ pub(crate) async fn run_tool_call_loop(
     multimodal_config: &crate::config::MultimodalConfig,
     max_tool_iterations: usize,
     cancellation_token: Option<CancellationToken>,
-    on_delta: Option<tokio::sync::mpsc::Sender<String>>,
+    turn_event_sink: Option<tokio::sync::mpsc::Sender<TurnEventSink>>,
     hooks: Option<&crate::hooks::HookRunner>,
     excluded_tools: &[String],
     dedup_exempt_tools: &[String],
@@ -2693,7 +2712,7 @@ pub(crate) async fn run_tool_call_loop(
         multimodal_config,
         max_tool_iterations,
         cancellation_token,
-        on_delta,
+        turn_event_sink,
         hooks,
         excluded_tools,
         dedup_exempt_tools,
@@ -2724,7 +2743,7 @@ pub(crate) async fn run_tool_call_loop_body(
     multimodal_config: &crate::config::MultimodalConfig,
     max_tool_iterations: usize,
     cancellation_token: Option<CancellationToken>,
-    on_delta: Option<tokio::sync::mpsc::Sender<String>>,
+    turn_event_sink: Option<tokio::sync::mpsc::Sender<TurnEventSink>>,
     hooks: Option<&crate::hooks::HookRunner>,
     excluded_tools: &[String],
     dedup_exempt_tools: &[String],
@@ -2876,14 +2895,12 @@ pub(crate) async fn run_tool_call_loop_body(
             multimodal::prepare_messages_for_provider(history, multimodal_config).await?;
 
         // ── Progress: LLM thinking ────────────────────────────
-        if let Some(ref tx) = on_delta {
-            let phase = if iteration == 0 {
-                "\u{1f914} Thinking...\n".to_string()
-            } else {
-                format!("\u{1f914} Thinking (round {})...\n", iteration + 1)
-            };
-            let _ = tx.send(phase).await;
-        }
+        let phase = if iteration == 0 {
+            "\u{1f914} Thinking...\n".to_string()
+        } else {
+            format!("\u{1f914} Thinking (round {})...\n", iteration + 1)
+        };
+        send_turn_sink_str(&turn_event_sink, phase).await;
 
         observer.record_event(&ObserverEvent::LlmRequest {
             provider: active_provider_name.to_string(),
@@ -3127,16 +3144,16 @@ pub(crate) async fn run_tool_call_loop_body(
         let display_text = strip_tool_result_blocks(&display_text);
 
         // ── Progress: LLM responded ─────────────────────────────
-        if let Some(ref tx) = on_delta {
-            let llm_secs = llm_started_at.elapsed().as_secs();
-            if !tool_calls.is_empty() {
-                let _ = tx
-                    .send(format!(
-                        "\u{1f4ac} Got {} tool call(s) ({llm_secs}s)\n",
-                        tool_calls.len()
-                    ))
-                    .await;
-            }
+        let llm_secs = llm_started_at.elapsed().as_secs();
+        if !tool_calls.is_empty() {
+            send_turn_sink_str(
+                &turn_event_sink,
+                format!(
+                    "\u{1f4ac} Got {} tool call(s) ({llm_secs}s)\n",
+                    tool_calls.len()
+                ),
+            )
+            .await;
         }
 
         if tool_calls.is_empty() {
@@ -3156,9 +3173,11 @@ pub(crate) async fn run_tool_call_loop_body(
             // No tool calls — this is the final response.
             // If a streaming sender is provided, relay the text in small chunks
             // so the channel can progressively update the draft message.
-            if let Some(ref tx) = on_delta {
+            if let Some(tx) = turn_event_sink.as_ref() {
                 // Clear accumulated progress lines before streaming the final answer.
-                let _ = tx.send(DRAFT_CLEAR_SENTINEL.to_string()).await;
+                let _ = tx
+                    .send(TurnEventSink::DeltaText(DRAFT_CLEAR_SENTINEL.to_string()))
+                    .await;
                 // Split on whitespace boundaries, accumulating chunks of at least
                 // STREAM_CHUNK_MIN_CHARS characters for progressive draft updates.
                 let mut chunk = String::new();
@@ -3171,13 +3190,18 @@ pub(crate) async fn run_tool_call_loop_body(
                     }
                     chunk.push_str(word);
                     if chunk.len() >= STREAM_CHUNK_MIN_CHARS
-                        && tx.send(std::mem::take(&mut chunk)).await.is_err()
+                        && tx
+                            .send(TurnEventSink::DeltaText(std::mem::take(&mut chunk)))
+                            .await
+                            .is_err()
                     {
                         break; // receiver dropped
                     }
                 }
                 if !chunk.is_empty() {
-                    let _ = tx.send(chunk).await;
+                    let _ = tx
+                        .send(TurnEventSink::DeltaText(chunk))
+                        .await;
                 }
             }
             history.push(ChatMessage::assistant(response_text.clone()));
@@ -3194,13 +3218,11 @@ pub(crate) async fn run_tool_call_loop_body(
         // the structured call payload; relay it to draft-capable channels.
         if !display_text.is_empty() {
             if !native_tool_calls.is_empty() {
-                if let Some(ref tx) = on_delta {
-                    let mut narration = display_text.clone();
-                    if !narration.ends_with('\n') {
-                        narration.push('\n');
-                    }
-                    let _ = tx.send(narration).await;
+                let mut narration = display_text.clone();
+                if !narration.ends_with('\n') {
+                    narration.push('\n');
                 }
+                send_turn_sink_str(&turn_event_sink, narration).await;
             }
             if !silent {
                 print!("{display_text}");
@@ -3247,15 +3269,15 @@ pub(crate) async fn run_tool_call_loop_body(
                                 "arguments": scrub_credentials(&tool_args.to_string()),
                             }),
                         );
-                        if let Some(ref tx) = on_delta {
-                            let _ = tx
-                                .send(format!(
-                                    "\u{274c} {}: {}\n",
-                                    call.name,
-                                    truncate_with_ellipsis(&scrub_credentials(&cancelled), 200)
-                                ))
-                                .await;
-                        }
+                        send_turn_sink_str(
+                            &turn_event_sink,
+                            format!(
+                                "\u{274c} {}: {}\n",
+                                call.name,
+                                truncate_with_ellipsis(&scrub_credentials(&cancelled), 200)
+                            ),
+                        )
+                        .await;
                         ordered_results[idx] = Some((
                             call.name.clone(),
                             call.tool_call_id.clone(),
@@ -3317,11 +3339,11 @@ pub(crate) async fn run_tool_call_loop_body(
                                 "arguments": scrub_credentials(&tool_args.to_string()),
                             }),
                         );
-                        if let Some(ref tx) = on_delta {
-                            let _ = tx
-                                .send(format!("\u{274c} {}: {}\n", tool_name, denied))
-                                .await;
-                        }
+                        send_turn_sink_str(
+                            &turn_event_sink,
+                            format!("\u{274c} {}: {}\n", tool_name, denied),
+                        )
+                        .await;
                         ordered_results[idx] = Some((
                             tool_name.clone(),
                             call.tool_call_id.clone(),
@@ -3358,11 +3380,11 @@ pub(crate) async fn run_tool_call_loop_body(
                         "deduplicated": true,
                     }),
                 );
-                if let Some(ref tx) = on_delta {
-                    let _ = tx
-                        .send(format!("\u{274c} {}: {}\n", tool_name, duplicate))
-                        .await;
-                }
+                send_turn_sink_str(
+                    &turn_event_sink,
+                    format!("\u{274c} {}: {}\n", tool_name, duplicate),
+                )
+                .await;
                 ordered_results[idx] = Some((
                     tool_name.clone(),
                     call.tool_call_id.clone(),
@@ -3391,17 +3413,24 @@ pub(crate) async fn run_tool_call_loop_body(
                 }),
             );
 
+            send_turn_sink_emit(
+                &turn_event_sink,
+                TurnEvent::ToolCall {
+                    name: tool_name.clone(),
+                    args: tool_args.clone(),
+                },
+            )
+            .await;
+
             // ── Progress: tool start ────────────────────────────
-            if let Some(ref tx) = on_delta {
-                let hint = truncate_tool_args_for_progress(&tool_name, &tool_args, 60);
-                let progress = if hint.is_empty() {
-                    format!("\u{23f3} {}\n", tool_name)
-                } else {
-                    format!("\u{23f3} {}: {hint}\n", tool_name)
-                };
-                tracing::debug!(tool = %tool_name, "Sending progress start to draft");
-                let _ = tx.send(progress).await;
-            }
+            let hint = truncate_tool_args_for_progress(&tool_name, &tool_args, 60);
+            let progress = if hint.is_empty() {
+                format!("\u{23f3} {}\n", tool_name)
+            } else {
+                format!("\u{23f3} {}: {hint}\n", tool_name)
+            };
+            tracing::debug!(tool = %tool_name, "Sending progress start to draft");
+            send_turn_sink_str(&turn_event_sink, progress).await;
 
             executable_indices.push(idx);
             executable_calls.push(ParsedToolCall {
@@ -3469,23 +3498,30 @@ pub(crate) async fn run_tool_call_loop_body(
                     .await;
             }
 
+            send_turn_sink_emit(
+                &turn_event_sink,
+                TurnEvent::ToolResult {
+                    name: call.name.clone(),
+                    output: outcome.output.clone(),
+                },
+            )
+            .await;
+
             // ── Progress: tool completion ───────────────────────
-            if let Some(ref tx) = on_delta {
-                let secs = outcome.duration.as_secs();
-                let progress_msg = if outcome.success {
-                    format!("\u{2705} {} ({secs}s)\n", call.name)
-                } else if let Some(ref reason) = outcome.error_reason {
-                    format!(
-                        "\u{274c} {} ({secs}s): {}\n",
-                        call.name,
-                        truncate_with_ellipsis(reason, 200)
-                    )
-                } else {
-                    format!("\u{274c} {} ({secs}s)\n", call.name)
-                };
-                tracing::debug!(tool = %call.name, secs, "Sending progress complete to draft");
-                let _ = tx.send(progress_msg).await;
-            }
+            let secs = outcome.duration.as_secs();
+            let progress_msg = if outcome.success {
+                format!("\u{2705} {} ({secs}s)\n", call.name)
+            } else if let Some(ref reason) = outcome.error_reason {
+                format!(
+                    "\u{274c} {} ({secs}s): {}\n",
+                    call.name,
+                    truncate_with_ellipsis(reason, 200)
+                )
+            } else {
+                format!("\u{274c} {} ({secs}s)\n", call.name)
+            };
+            tracing::debug!(tool = %call.name, secs, "Sending progress complete to draft");
+            send_turn_sink_str(&turn_event_sink, progress_msg).await;
 
             ordered_results[*idx] = Some((call.name.clone(), call.tool_call_id.clone(), outcome));
         }
@@ -5046,6 +5082,7 @@ mod tests {
         save_interactive_session_history,
     };
     use crate::agent::session_record::SessionCompactionMeta;
+    use crate::agent::TurnEventSink;
     use crate::providers::ChatMessage;
     use tempfile::tempdir;
 
@@ -6650,7 +6687,7 @@ mod tests {
             ChatMessage::user("run tool calls"),
         ];
         let observer = NoopObserver;
-        let (tx, mut rx) = tokio::sync::mpsc::channel(16);
+        let (tx, mut rx) = tokio::sync::mpsc::channel::<TurnEventSink>(16);
 
         let result = run_tool_call_loop(
             &provider,
@@ -6679,17 +6716,19 @@ mod tests {
             None,
         )
         .await
-        .expect("native tool-call text should be relayed through on_delta");
+        .expect("native tool-call text should be relayed through turn_event_sink");
 
         let mut deltas: Vec<String> = Vec::new();
-        while let Some(delta) = rx.recv().await {
-            deltas.push(delta);
+        while let Some(item) = rx.recv().await {
+            if let TurnEventSink::DeltaText(s) = item {
+                deltas.push(s);
+            }
         }
 
         let explanation_idx = deltas
             .iter()
             .position(|delta| delta == "Task started. Waiting 30 seconds before checking status.\n")
-            .expect("native assistant text should be relayed to on_delta");
+            .expect("native assistant text should be relayed to turn_event_sink");
         let clear_idx = deltas
             .iter()
             .position(|delta| delta == DRAFT_CLEAR_SENTINEL)
@@ -8643,7 +8682,7 @@ Let me check the result."#;
         ];
         let observer = NoopObserver;
 
-        let (tx, mut rx) = tokio::sync::mpsc::channel::<String>(64);
+        let (tx, mut rx) = tokio::sync::mpsc::channel::<TurnEventSink>(64);
 
         let result = run_tool_call_loop(
             &provider,
@@ -8674,10 +8713,12 @@ Let me check the result."#;
         .await
         .expect("tool loop should complete");
 
-        // Collect all messages sent to the on_delta channel.
+        // Collect draft/progress strings (DeltaText) from the turn sink.
         let mut deltas = Vec::new();
         while let Ok(msg) = rx.try_recv() {
-            deltas.push(msg);
+            if let TurnEventSink::DeltaText(s) = msg {
+                deltas.push(s);
+            }
         }
 
         let all_deltas = deltas.join("");
@@ -8685,13 +8726,13 @@ Let me check the result."#;
         // The failure reason should appear in the progress messages.
         assert!(
             all_deltas.contains("Command not allowed by security policy"),
-            "on_delta messages should include the tool failure reason, got: {all_deltas}"
+            "turn_event_sink DeltaText messages should include the tool failure reason, got: {all_deltas}"
         );
 
         // Should also contain the cross mark (❌) icon to indicate failure.
         assert!(
             all_deltas.contains('\u{274c}'),
-            "on_delta messages should include ❌ for failed tool calls, got: {all_deltas}"
+            "turn_event_sink DeltaText messages should include ❌ for failed tool calls, got: {all_deltas}"
         );
 
         assert_eq!(result, "I could not execute that command.");

@@ -167,25 +167,92 @@ Send a message to the agent and receive a response.
 
 ## WebSocket Chat
 
-### GET /ws/chat?token=<bearer_token>
-Streaming agent chat over WebSocket.
+### GET /ws/chat
+Streaming agent chat over WebSocket. The agent uses [`Agent::turn_streamed`](../../../../src/agent/agent.rs): the server forwards incremental **`chunk`** frames (LLM text and in-turn progress), optional **`tool_call`** / **`tool_result`** frames, then a **`chunk_reset`** followed by authoritative **`done`**.
 
-**Client → Server:**
+**Query parameters**
+
+| Parameter | Purpose |
+|-----------|---------|
+| `token` | Bearer token when the client cannot send `Authorization` (typical for browsers). |
+| `session_id` | Resume or scope a session (default: new UUID). |
+| `name` | Optional human-readable session label (stored with the session backend). |
+
+**Authentication** (first non-empty wins): `Authorization: Bearer <token>`, `Sec-WebSocket-Protocol` entry `bearer.<token>`, or `?token=<token>`.
+
+**Sub-protocol:** clients may request `Sec-WebSocket-Protocol: zeroclaw.v1`; the server echoes it when offered.
+
+**Server → Client (immediately after upgrade)**
+
+When a session backend is configured, the first frame is session metadata:
+
+```json
+{"type": "session_start", "session_id": "...", "resumed": true, "message_count": 42, "name": "My chat"}
+```
+
+`name` is omitted if unset. If there is no session backend, this frame is still sent with `session_id`, `resumed`, and `message_count` reflecting the in-memory agent.
+
+**Optional first client frame — `connect`**
+
+```json
+{"type": "connect", "session_id": "optional-id", "device_name": "...", "capabilities": []}
+```
+
+The server may re-hydrate history, send an updated `session_start`, then:
+
+```json
+{"type": "connected", "message": "Connection established"}
+```
+
+If the first frame is `{"type":"message",...}` instead, it is handled as a normal chat message (backward compatible).
+
+**Client → Server (chat)**
+
 ```json
 {"type": "message", "content": "Hello, what's the weather?"}
 ```
 
-**Server → Client (complete response):**
+**Server → Client (streaming turn)**
+
+While the model and tool loop run, expect zero or more of:
+
+```json
+{"type": "chunk", "content": "partial text or progress line"}
+```
+
+`chunk` carries both streamed model tokens and short progress strings from the tool loop (for example “thinking” / tool status lines). Token streaming from the provider also arrives as `chunk`.
+
+```json
+{"type": "tool_call", "name": "shell", "args": {"command": "..."}}
+```
+
+```json
+{"type": "tool_result", "name": "shell", "output": "..."}
+```
+
+Draft-style UIs may see a chunk whose `content` is the internal draft-clear sentinel (null bytes around `CLEAR`); treat it as “discard accumulated draft before final text” if you implement that pattern.
+
+When the turn finishes successfully, the server sends:
+
+```json
+{"type": "chunk_reset"}
+```
+
 ```json
 {"type": "done", "full_response": "The weather in San Francisco is sunny..."}
 ```
 
-**Server → Client (error):**
+`full_response` is the final assistant message; use it as the source of truth after `chunk_reset`.
+
+**Server → Client (error)**
+
 ```json
-{"type": "error", "message": "Error message here"}
+{"type": "error", "message": "Error message here", "code": "AGENT_ERROR"}
 ```
 
-Ignore unknown message types. Invalid JSON triggers an error response.
+`code` is present on many failures (for example `INVALID_JSON`, `EMPTY_CONTENT`, `AUTH_ERROR`, `AGENT_INIT_FAILED`).
+
+Ignore unknown message types where appropriate. Invalid JSON on the socket yields an `error` frame.
 
 ---
 

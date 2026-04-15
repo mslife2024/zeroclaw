@@ -104,7 +104,7 @@ curl -X POST http://127.0.0.1:42617/webhook \
 ```
 Response: `{"response": "...", "model": "..."}`
 
-**WebSocket** (for streaming): connect to `ws://127.0.0.1:42617/ws/chat?token=<token>`, send `{"type": "message", "content": "..."}`, receive `{"type": "done", "full_response": "..."}`.
+**WebSocket** (streaming): `ws://127.0.0.1:42617/ws/chat?token=<token>` (optional `session_id`, `name`). Send `{"type": "message", "content": "..."}`. The server streams `chunk` (partial model text plus optional in-turn progress), then `tool_call` / `tool_result` when tools run, then `chunk_reset` and `done` with `full_response`. See `references/rest-api.md` → WebSocket Chat for `session_start`, optional `connect`, auth header/subprotocol, and error `code` values.
 
 ### System Status
 
