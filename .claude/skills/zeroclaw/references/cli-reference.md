@@ -75,6 +75,7 @@ zeroclaw status                    # System overview
 zeroclaw doctor                    # Run all diagnostic checks
 zeroclaw doctor models             # Probe model connectivity
 zeroclaw doctor traces             # Query execution traces
+zeroclaw doctor query-engine       # QueryEngine trace + system-prompt + layered-memory stats
 ```
 
 ---
@@ -88,6 +89,8 @@ zeroclaw memory get "some-key"                    # Get specific entry
 zeroclaw memory stats                             # Usage statistics
 zeroclaw memory clear --key "prefix" --yes        # Delete entries (requires --yes)
 ```
+
+Layered memory (`[memory.layered]` in `config.toml`) is documented in `docs/reference/api/config-reference.md`; use `zeroclaw doctor query-engine` after a turn to see selector stats.
 
 **Key flags:**
 - `--category <name>` — filter by category (core, daily, conversation, custom)

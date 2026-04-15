@@ -353,6 +353,15 @@ audit_enabled = false
 audit_retention_days = 30
 sqlite_open_timeout_secs = 300
 
+# Optional layered memory: curated topics + per-session summaries under ~/.zeroclaw/
+# (see docs/reference/api/config-reference.md — "[memory.layered]")
+[memory.layered]
+enabled = false
+# staleness_warn_days = 7
+# index_max_entries = 200
+# max_topics_in_prompt = 5
+# max_chars_total = 8000
+
 [memory.policy]
 max_entries_per_namespace = 0
 max_entries_per_category = 0

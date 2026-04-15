@@ -42,7 +42,7 @@ Key extension points:
 - `src/agent/` — orchestration: `system_prompt.rs` (workspace system prompt assembly; static/dynamic + cache boundary), `loop_.rs` (`run_tool_call_loop` / `run_tool_call_loop_body`), `query_engine.rs` (`run_query_loop`: diagnostics + post-turn hooks + last system-prompt assembly stats), `state.rs` / `compaction_pipeline.rs` / `stop_hooks.rs`, `agent.rs` (gateway/interactive `Agent`), `session_transcript.rs`
 - `src/gateway/` — webhook/gateway server; `AppState` holds optional `hooks` (`HookRunner`) shared with WebSocket `Agent` (`from_config_with_hooks`)
 - `src/security/` — policy, pairing, secret store
-- `src/memory/` — markdown/sqlite memory backends + embeddings/vector merge
+- `src/memory/` — markdown/sqlite memory backends + embeddings/vector merge; optional layered AutoMemory + SessionMemory (`layered_*.rs`, `docs/reference/api/config-reference.md` `[memory.layered]`)
 - `src/providers/` — model providers and resilient wrapper
 - `src/channels/` — Telegram/Discord/Slack/etc channels
 - `src/tools/` — tool execution surface (shell, file, memory, browser)
