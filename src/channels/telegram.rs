@@ -190,6 +190,66 @@ fn format_attachment_content(
     }
 }
 
+/// Plain-text attachments (bytes) we may inline into the agent prompt after download.
+const TELEGRAM_MAX_INLINE_TEXT_ATTACHMENT_BYTES: usize = 100 * 1024;
+
+fn is_telegram_inline_text_extension(path: &Path) -> bool {
+    path.extension()
+        .and_then(|ext| ext.to_str())
+        .is_some_and(|ext| {
+            matches!(
+                ext.to_ascii_lowercase().as_str(),
+                "txt" | "md" | "markdown"
+            )
+        })
+}
+
+/// Appends UTF-8 file contents after the path marker for small `.txt` / `.md` / `.markdown` files.
+fn append_telegram_inline_text_attachment(
+    content: &mut String,
+    local_filename: &str,
+    local_path: &Path,
+    file_data: &[u8],
+) {
+    if !is_telegram_inline_text_extension(local_path) {
+        return;
+    }
+    if file_data.len() > TELEGRAM_MAX_INLINE_TEXT_ATTACHMENT_BYTES {
+        tracing::info!(
+            file = %local_filename,
+            bytes = file_data.len(),
+            limit = TELEGRAM_MAX_INLINE_TEXT_ATTACHMENT_BYTES,
+            "Telegram text attachment too large for inlining; path marker only"
+        );
+        return;
+    }
+    let Ok(text) = std::str::from_utf8(file_data) else {
+        tracing::warn!(
+            file = %local_filename,
+            "Telegram text attachment is not valid UTF-8; skipping inline"
+        );
+        return;
+    };
+    if text.trim().is_empty() {
+        return;
+    }
+    let ext_label = local_path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("txt")
+        .to_ascii_uppercase();
+    content.push_str("\n\n");
+    let _ = writeln!(
+        content,
+        "=== Attached document ({ext_label}): {local_filename} | {} bytes ===",
+        file_data.len()
+    );
+    let _ = writeln!(content);
+    content.push_str(text);
+    let _ = writeln!(content);
+    let _ = writeln!(content, "=== End attached document ===");
+}
+
 fn is_http_url(target: &str) -> bool {
     target.starts_with("http://") || target.starts_with("https://")
 }
@@ -1141,6 +1201,12 @@ Allowlist Telegram username (without '@') or numeric user ID.",
         // pipeline validates vision capability. Non-image files always get
         // [Document:] format regardless of Telegram's classification.
         let mut content = format_attachment_content(attachment.kind, &local_filename, &local_path);
+        append_telegram_inline_text_attachment(
+            &mut content,
+            &local_filename,
+            &local_path,
+            &file_data,
+        );
         if let Some(caption) = &attachment.caption {
             if !caption.is_empty() {
                 use std::fmt::Write;
@@ -3336,6 +3402,59 @@ mod tests {
     #[test]
     fn parse_path_only_attachment_rejects_sentence_text() {
         assert!(parse_path_only_attachment("Screenshot saved to /tmp/snap.png").is_none());
+    }
+
+    #[test]
+    fn append_telegram_inline_text_inserts_body_for_txt() {
+        let mut content = "[Document: note.txt] /w/note.txt".to_string();
+        append_telegram_inline_text_attachment(
+            &mut content,
+            "note.txt",
+            Path::new("note.txt"),
+            b"hello world",
+        );
+        assert!(content.starts_with("[Document:"));
+        assert!(content.contains("hello world"));
+        assert!(content.contains("=== Attached document (TXT):"));
+        assert!(content.contains("=== End attached document ==="));
+    }
+
+    #[test]
+    fn append_telegram_inline_supports_markdown_extension() {
+        let mut content = "m".to_string();
+        append_telegram_inline_text_attachment(
+            &mut content,
+            "README.markdown",
+            Path::new("README.markdown"),
+            b"# Title",
+        );
+        assert!(content.contains("# Title"));
+        assert!(content.contains("(MARKDOWN):"));
+    }
+
+    #[test]
+    fn append_telegram_inline_skips_over_limit() {
+        let mut content = "marker".to_string();
+        let big = vec![b'a'; TELEGRAM_MAX_INLINE_TEXT_ATTACHMENT_BYTES + 1];
+        append_telegram_inline_text_attachment(
+            &mut content,
+            "huge.txt",
+            Path::new("huge.txt"),
+            &big,
+        );
+        assert_eq!(content, "marker");
+    }
+
+    #[test]
+    fn append_telegram_inline_skips_non_text_extensions() {
+        let mut content = "marker".to_string();
+        append_telegram_inline_text_attachment(
+            &mut content,
+            "x.pdf",
+            Path::new("x.pdf"),
+            b"%PDF-1.4",
+        );
+        assert_eq!(content, "marker");
     }
 
     #[test]
