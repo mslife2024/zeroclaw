@@ -280,7 +280,7 @@ Only load these when you need precise details beyond what's in this file — for
 
 **Memory not persisting** — Check `[memory]` config. If `backend = "none"`, nothing is stored. Switch to `"sqlite"` or `"markdown"`. Also verify `auto_save = true`.
 
-**Layered memory (`[memory.layered]`)** — When `enabled = true`, curated facts and session summaries live under `~/.zeroclaw/memory/<workspace-bucket>/` and `~/.zeroclaw/sessions/.../session-memory/` (see `docs/reference/api/config-reference.md`). The model sees a short block in the system prompt instead of the full workspace `MEMORY.md`. For post-turn **writes** (session files + topic updates from consolidation), keep `memory.auto_save = true`. Inspect behavior with `zeroclaw doctor query-engine` (layered selector stats).
+**Layered memory (`[memory.layered]`)** — When `enabled = true`, curated facts and session summaries live under `~/.zeroclaw/memory/<workspace-bucket>/` and `~/.zeroclaw/sessions/.../session-memory/` (see `docs/reference/api/config-reference.md`). The model sees a short block in the system prompt instead of the full workspace `MEMORY.md`. For post-turn **writes** (session files + topic updates), keep `memory.auto_save = true`; consolidation runs **awaited** on the main turn path (the `MemoryConsolidationHook` builtin remains registered but is a no-op to avoid double LLM work). After history prune, a **memory reload** snippet (latest consolidation digest + optional AutoMemory index) can merge into the dynamic tail. Inspect with `zeroclaw doctor query-engine`; for hands, `zeroclaw doctor long-run`.
 
 **Channel not responding** — Run `zeroclaw channels doctor` for the specific channel. Common issues: expired bot token, wrong allowed_users list, channel not enabled in `[channels]`.
 

@@ -177,7 +177,7 @@ zeroclaw/
 | `onboard/` | `wizard.rs` (7.2k)、`mod.rs` | **首次运行设置向导。** 交互式或快速模式引导：提供商、API 密钥、渠道、内存后端。 |
 | `auth/` | `profiles.rs`、`anthropic_token.rs`、`gemini_oauth.rs`、`openai_oauth.rs`、`oauth_common.rs` | **认证配置文件与 OAuth 流程。** 按提供商管理凭证。 |
 | `approval/` | `mod.rs` | **审批工作流。** 对风险操作进行人工审批门控。 |
-| `doctor/` | `mod.rs` (1.3k) | **诊断工具。** 检查守护进程健康状态、调度器新鲜度、渠道连通性。 |
+| `doctor/` | `mod.rs`、`long_run.rs` | **诊断工具。** 检查守护进程健康状态、调度器新鲜度、渠道连通性；`long_run` 探测协调器 hand（scratchpad 时间戳、分层索引、提示缓存边界）。 |
 | `health/` | `mod.rs` | **健康检查端点。** |
 | `cost/` | `tracker.rs`、`types.rs`、`mod.rs` | **成本追踪。** 按会话和按日成本核算。 |
 | `tunnel/` | `cloudflare.rs`、`ngrok.rs`、`tailscale.rs`、`custom.rs`、`none.rs`、`mod.rs` | **隧道适配器。** 通过 Cloudflare、ngrok、Tailscale 或自定义隧道暴露网关。 |

@@ -2,7 +2,7 @@
 
 This reference is derived from the current CLI surface (`zeroclaw --help`).
 
-Last verified: **February 21, 2026**.
+Last verified: **April 15, 2026**.
 
 ## Top-Level Commands
 
@@ -126,9 +126,11 @@ Notes:
 ### `doctor`
 
 - `zeroclaw doctor`
+- `zeroclaw doctor query-engine` — in-process QueryEngine transition tail, last system-prompt assembly, layered-memory selector stats (when enabled), last post-compaction **memory injection** timestamp, and a short preview of the latest **session-memory summary** from consolidation (process-local).
 - `zeroclaw doctor models [--provider <ID>] [--use-cache]`
 - `zeroclaw doctor traces [--limit <N>] [--event <TYPE>] [--contains <TEXT>]`
 - `zeroclaw doctor traces --id <TRACE_ID>`
+- `zeroclaw doctor long-run [HAND]` — optional `HAND` is the TOML stem under `~/.zeroclaw/hands` (omit to scan every hand). For each selected hand, checks coordinator scratchpad freshness (`decisions.md` / `final_summary.md`), workspace AutoMemory index age when `[memory.layered]` is on, and whether the assembled hand system prompt still contains `__SYSTEM_PROMPT_DYNAMIC_BOUNDARY__` (Phase 1 cache split).
 
 `doctor traces` reads runtime tool/model diagnostics from `observability.runtime_trace_path`.
 

@@ -2,7 +2,7 @@
 
 本参考文档派生自当前 CLI 界面（`zeroclaw --help`）。
 
-最后验证时间：**2026年2月21日**。
+最后验证时间：**2026年4月15日**。
 
 ## 顶级命令
 
@@ -120,9 +120,11 @@
 ### `doctor`
 
 - `zeroclaw doctor`
+- `zeroclaw doctor query-engine` — 进程内 QueryEngine 状态迁移尾部、最近一次系统提示组装、`[memory.layered]` 时的分层选择器统计、上次**压缩后记忆注入**时间戳，以及来自合并结果的**会话记忆摘要**短预览（仅当前进程）。
 - `zeroclaw doctor models [--provider <ID>] [--use-cache]`
 - `zeroclaw doctor traces [--limit <N>] [--event <TYPE>] [--contains <TEXT>]`
 - `zeroclaw doctor traces --id <TRACE_ID>`
+- `zeroclaw doctor long-run [HAND]` — 可选 `HAND` 为 `~/.zeroclaw/hands` 下 TOML 文件名（不含扩展名）；省略则扫描全部 hand。对每个 hand 检查协调器 scratchpad（`decisions.md` / `final_summary.md`）新鲜度、启用分层时工作区 AutoMemory 索引年龄，以及组装后的 hand 系统提示是否仍含 `__SYSTEM_PROMPT_DYNAMIC_BOUNDARY__`（Phase 1 缓存分段）。
 
 `doctor traces` 从 `observability.runtime_trace_path` 读取运行时工具/模型诊断信息。
 

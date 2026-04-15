@@ -177,7 +177,7 @@ Sandboxing: `bubblewrap.rs`, `firejail.rs`, `landlock.rs`, `docker.rs`, `detect.
 | `onboard/` | `wizard.rs` (7.2k), `mod.rs` | **First-run setup wizard.** Interactive or quick-mode onboarding: provider, API key, channels, memory backend. |
 | `auth/` | `profiles.rs`, `anthropic_token.rs`, `gemini_oauth.rs`, `openai_oauth.rs`, `oauth_common.rs` | **Auth profiles and OAuth flows.** Per-provider credential management. |
 | `approval/` | `mod.rs` | **Approval workflows.** Gate risky actions behind human approval. |
-| `doctor/` | `mod.rs` (1.3k) | **Diagnostics.** Checks daemon health, scheduler freshness, channel connectivity. |
+| `doctor/` | `mod.rs`, `long_run.rs` | **Diagnostics.** Checks daemon health, scheduler freshness, channel connectivity; `long_run` probes coordinator hands (scratchpad mtimes, layered index, prompt cache boundary). |
 | `health/` | `mod.rs` | **Health check endpoints.** |
 | `cost/` | `tracker.rs`, `types.rs`, `mod.rs` | **Cost tracking.** Per-session and per-day cost accounting. |
 | `tunnel/` | `cloudflare.rs`, `ngrok.rs`, `tailscale.rs`, `custom.rs`, `none.rs`, `mod.rs` | **Tunnel adapters.** Expose gateway via Cloudflare, ngrok, Tailscale, or custom tunnels. |
@@ -244,7 +244,7 @@ zeroclaw
 ├── peripheral {list|add|flash|flash-nucleo|setup-uno-q}
 ├── hardware {discover|introspect|info}
 ├── service {install|start|stop|restart|status|uninstall}
-├── doctor                                # Diagnostics
+├── doctor {query-engine|models|traces|long-run}  # Diagnostics
 ├── status                                # System overview
 ├── estop [--level] [status|resume]       # Emergency stop
 ├── migrate openclaw                      # Data migration

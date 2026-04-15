@@ -564,9 +564,10 @@ Notes:
 
 - **AutoMemory** lives at `~/.zeroclaw/memory/<workspace-bucket>/` (`MEMORY.md` index + `topics/*.md`). This is separate from workspace `MEMORY.md` used by the `markdown` memory backend.
 - **SessionMemory** turn files: `~/.zeroclaw/sessions/<session-stem>/session-memory/<uuid>.md` (same session stem family as JSONL transcripts).
-- **Writes** (session file + optional topic rows from consolidation) run after a turn when `memory.auto_save = true` and consolidation runs; layered injection can be enabled without `auto_save`, but then only the selector reads existing files.
+- **Writes** (session file + optional topic rows from consolidation) run after a successful turn when `memory.auto_save = true`: consolidation is **awaited** on the main agent / QueryEngine path (not a duplicate background hook). Layered injection can be enabled without `auto_save`, but then only the selector reads existing files.
+- **Post-compaction reload:** after history prune, the loop can merge a short markdown **memory reload** block into the system prompt dynamic tail: latest in-process session-memory digest (from the last consolidation) plus a capped snippet of the workspace AutoMemory `MEMORY.md` index when a workspace root is known. Stale summaries or index mtimes older than 24h add in-prompt warnings.
 - Topic ranking uses keyword overlap and, when `[memory]` embedding settings are non-`none`, the same hybrid weights as `vector_weight` / `keyword_weight`.
-- Diagnostics: `zeroclaw doctor query-engine` prints the last in-process layered selector stats (topics picked, session injected, staleness warnings).
+- Diagnostics: `zeroclaw doctor query-engine` prints layered selector stats when enabled, last memory-injection time, and a preview of the session-memory summary; `zeroclaw doctor long-run` checks long-running **hands** (scratchpad, index age, static/dynamic prompt boundary).
 
 ```toml
 [memory]

@@ -75,7 +75,8 @@ zeroclaw status                    # System overview
 zeroclaw doctor                    # Run all diagnostic checks
 zeroclaw doctor models             # Probe model connectivity
 zeroclaw doctor traces             # Query execution traces
-zeroclaw doctor query-engine       # QueryEngine trace + system-prompt + layered-memory stats
+zeroclaw doctor query-engine       # QueryEngine trace + system-prompt + layered-memory stats + memory-injection + session-memory preview
+zeroclaw doctor long-run [HAND]    # Hand scratchpad + AutoMemory index + prompt cache boundary (optional HAND = ~/.zeroclaw/hands/<stem>)
 ```
 
 ---
@@ -90,7 +91,7 @@ zeroclaw memory stats                             # Usage statistics
 zeroclaw memory clear --key "prefix" --yes        # Delete entries (requires --yes)
 ```
 
-Layered memory (`[memory.layered]` in `config.toml`) is documented in `docs/reference/api/config-reference.md`; use `zeroclaw doctor query-engine` after a turn to see selector stats.
+Layered memory (`[memory.layered]` in `config.toml`) is documented in `docs/reference/api/config-reference.md`; use `zeroclaw doctor query-engine` after a turn for selector stats, last post-compaction memory injection, and session-memory summary preview. For coordinator hands, `zeroclaw doctor long-run` checks scratchpad freshness and the static/dynamic system-prompt boundary marker.
 
 **Key flags:**
 - `--category <name>` — filter by category (core, daily, conversation, custom)

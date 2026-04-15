@@ -2,7 +2,7 @@
 
 Dựa trên CLI hiện tại (`zeroclaw --help`).
 
-Xác minh lần cuối: **2026-02-20**.
+Xác minh lần cuối: **2026-04-15**.
 
 ## Lệnh cấp cao nhất
 
@@ -75,6 +75,14 @@ Xác minh lần cuối: **2026-02-20**.
 - `zeroclaw models refresh --force`
 
 `models refresh` hiện hỗ trợ làm mới danh mục trực tiếp cho các provider: `openrouter`, `openai`, `anthropic`, `groq`, `mistral`, `deepseek`, `xai`, `together-ai`, `gemini`, `ollama`, `astrai`, `venice`, `fireworks`, `cohere`, `moonshot`, `glm`, `zai`, `qwen` và `nvidia`.
+
+### `doctor`
+
+- `zeroclaw doctor`
+- `zeroclaw doctor query-engine` — trace QueryEngine, system prompt, layered memory, memory injection, tóm tắt session-memory (trong tiến trình).
+- `zeroclaw doctor models [--provider <ID>] [--use-cache]`
+- `zeroclaw doctor traces [--limit <N>] [--event <TYPE>] [--contains <TEXT>]` / `zeroclaw doctor traces --id <TRACE_ID>`
+- `zeroclaw doctor long-run [HAND]` — kiểm tra hand điều phối (scratchpad, index AutoMemory, ranh giới `__SYSTEM_PROMPT_DYNAMIC_BOUNDARY__`); `HAND` là tên file TOML trong `~/.zeroclaw/hands` (bỏ qua để quét tất cả).
 
 ### `channel`
 

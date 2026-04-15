@@ -177,7 +177,7 @@ Sandboxing: `bubblewrap.rs`, `firejail.rs`, `landlock.rs`, `docker.rs`, `detect.
 | `onboard/` | `wizard.rs` (7.2k), `mod.rs` | **Trình hướng dẫn lần đầu.** |
 | `auth/` | `profiles.rs`, `anthropic_token.rs`, `gemini_oauth.rs`, `openai_oauth.rs`, `oauth_common.rs` | **Hồ sơ xác thực và OAuth.** |
 | `approval/` | `mod.rs` | **Luồng phê duyệt.** |
-| `doctor/` | `mod.rs` (1.3k) | **Chẩn đoán.** |
+| `doctor/` | `mod.rs`, `long_run.rs` | **Chẩn đoán.** Kiểm tra daemon, scheduler, kênh; `long_run` thăm dò hand điều phối (scratchpad, index, ranh giới prompt cache). |
 | `health/` | `mod.rs` | **Endpoint health.** |
 | `cost/` | `tracker.rs`, `types.rs`, `mod.rs` | **Theo dõi chi phí.** |
 | `tunnel/` | `cloudflare.rs`, `ngrok.rs`, `tailscale.rs`, `custom.rs`, `none.rs`, `mod.rs` | **Bộ thích ứng tunnel.** |

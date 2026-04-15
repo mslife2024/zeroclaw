@@ -467,9 +467,10 @@ allowed_roots = [\"~/Desktop/projects\", \"/opt/shared-repo\"]
 
 - **AutoMemory** 位于 `~/.zeroclaw/memory/<工作区桶>/`（`MEMORY.md` 索引 + `topics/*.md`），与 `markdown` 后端使用的工作区 `MEMORY.md` 相互独立。
 - **SessionMemory** 回合文件：`~/.zeroclaw/sessions/<会话 stem>/session-memory/<uuid>.md`（与会话 JSONL 转录使用相同的 stem 规则族）。
-- 当 `memory.auto_save = true` 且合并（consolidation）运行时，会在回合后写入会话文件并可选更新主题；仅启用分层而不启用 `auto_save` 时，选择器只读取已有文件。
+- 当 `memory.auto_save = true` 时，在成功回合结束后**同步 `await` 合并**并写入会话文件及可选主题更新（主 Agent / QueryEngine 路径，不再由钩子后台重复调用 LLM）。仅启用分层而不启用 `auto_save` 时，选择器只读取已有文件。
+- **压缩后重载：** 历史裁剪后，循环可将简短 Markdown **memory reload** 块并入系统提示动态尾部：来自最近一次合并的进程内会话记忆摘要，以及已知工作区根时 AutoMemory `MEMORY.md` 索引的截断片段。摘要或索引 mtime 超过约 24 小时会在提示中加入陈旧警告。
 - 主题排序使用关键词重叠；当 `[memory]` 嵌入配置非 `none` 时，复用 `vector_weight` / `keyword_weight` 的混合权重。
-- 诊断：`zeroclaw doctor query-engine` 会打印进程内最近一次分层选择器统计（选中主题数、是否注入会话摘要、陈旧警告数）。
+- 诊断：`zeroclaw doctor query-engine` 在启用分层时打印选择器统计，并输出上次记忆注入时间与会话记忆摘要预览；`zeroclaw doctor long-run` 用于长期运行的 **hands**（scratchpad、索引年龄、静态/动态提示边界）。
 
 ```toml
 [memory]
