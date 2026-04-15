@@ -4476,6 +4476,7 @@ pub async fn start_channels(config: Config) -> Result<()> {
         reaction_handle_ch,
         _channel_map_handle,
         ask_user_handle_ch,
+        _shell_engine_ch,
     ) = tools::all_tools_with_runtime(
         Arc::new(config.clone()),
         &security,

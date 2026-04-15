@@ -532,6 +532,34 @@ forbidden_paths = ["/etc", "/root", "/proc", "/sys", "~/.ssh", "~/.gnupg", "~/.a
 allowed_roots = ["~/Desktop/projects", "/opt/shared-repo"]
 ```
 
+## `[shell]`
+
+Unified shell execution engine (profiles). **Autonomy** (`[autonomy].level`, allowlists, risk gates) is still enforced after profile-specific checks.
+
+| Key | Default | Purpose |
+|---|---|---|
+| `profile` | `safe` | `safe`, `balanced`, `autonomous`, or a custom id from `[[shell.profiles]]` |
+| `timeout_secs` | `60` | kill a shell command after this many seconds |
+| `login_shell` | `false` | when `true`, Unix uses `sh -lc` instead of `sh -c` (Windows ignores) |
+
+Optional tables:
+
+- **`[shell.safe]`** — `forbidden_paths` (`[]`): extra path substrings blocked before execution (in addition to `[autonomy].forbidden_paths`).
+- **`[shell.balanced]`** — reserved (`snapshot_enabled`, etc.).
+- **`[shell.autonomous]`** — `max_validators`, `spill_threshold_bytes` (reserved / partial wiring).
+
+Custom profiles:
+
+```toml
+[[shell.profiles]]
+id = "research"
+extends = "autonomous"
+```
+
+**Migration:** legacy `[shell_tool]` in `config.toml` is migrated automatically on load to `[shell]` with `profile = "safe"` and the prior `timeout_secs` when present. A one-time backup `config.toml.bak.<unix_ts>` may be written. Remove any leftover `[shell_tool]` header manually.
+
+**Environment override:** `ZEROCLAW_SHELL_PROFILE` sets `shell.profile` after the file is loaded (same validation rules).
+
 ## `[memory]`
 
 | Key | Default | Purpose |

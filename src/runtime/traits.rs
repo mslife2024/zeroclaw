@@ -59,6 +59,9 @@ pub trait RuntimeAdapter: Send + Sync {
     /// prepend sandbox wrappers, set environment variables, or redirect
     /// I/O as appropriate for the platform.
     ///
+    /// When `login_shell` is `true`, Unix runtimes should prefer `sh -lc`
+    /// (login shell) instead of `sh -c`. Windows implementations may ignore it.
+    ///
     /// # Errors
     ///
     /// Returns an error if the runtime does not support shell access or if
@@ -67,6 +70,7 @@ pub trait RuntimeAdapter: Send + Sync {
         &self,
         command: &str,
         workspace_dir: &Path,
+        login_shell: bool,
     ) -> anyhow::Result<tokio::process::Command>;
 }
 
@@ -101,6 +105,7 @@ mod tests {
             &self,
             command: &str,
             workspace_dir: &Path,
+            _login_shell: bool,
         ) -> anyhow::Result<tokio::process::Command> {
             let mut cmd = tokio::process::Command::new("echo");
             cmd.arg(command);
@@ -130,7 +135,7 @@ mod tests {
     async fn build_shell_command_executes() {
         let runtime = DummyRuntime;
         let mut cmd = runtime
-            .build_shell_command("hello-runtime", Path::new("."))
+            .build_shell_command("hello-runtime", Path::new("."), false)
             .unwrap();
 
         let output = cmd.output().await.unwrap();

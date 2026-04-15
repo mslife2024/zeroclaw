@@ -74,6 +74,7 @@ pub(crate) mod service;
 pub(crate) mod skills;
 pub mod sop;
 pub mod tools;
+pub mod shell;
 pub use tools::{run_mcp_http_server, run_mcp_stdio_server};
 pub(crate) mod tunnel;
 pub(crate) mod util;

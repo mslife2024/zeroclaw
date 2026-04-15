@@ -181,7 +181,7 @@ impl McpServeRuntime {
             (None, None)
         };
 
-        let (mut tools_registry, _delegate, _r1, _r2, _r3) = all_tools_with_runtime(
+        let (mut tools_registry, _delegate, _r1, _r2, _r3, shell_engine) = all_tools_with_runtime(
             Arc::new(config.clone()),
             &security,
             runtime,
@@ -199,7 +199,12 @@ impl McpServeRuntime {
         );
 
         let loaded_skills = skills::load_skills_with_config(&config.workspace_dir, config);
-        register_skill_tools(&mut tools_registry, &loaded_skills, security.clone());
+        register_skill_tools(
+            &mut tools_registry,
+            &loaded_skills,
+            security.clone(),
+            shell_engine,
+        );
 
         let peripheral_tools: Vec<Box<dyn Tool>> =
             crate::peripherals::create_peripheral_tools(&config.peripherals).await?;

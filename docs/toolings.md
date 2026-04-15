@@ -118,11 +118,12 @@ We can build on what already exists (your autonomy levels: ReadOnly / Supervised
 | **Balanced**       | Medium validators + smart rewriting | Supervised / Full      | Everyday dev work                     | Medium            | High            |
 | **Autonomous / Research** | Full Claude-style (23+ validators, AST-like checks, rewriting, snapshot, diff previews) | Full (with optional supervised fallback) | Deep research, long coding sessions, autonomous exploration | Low               | Very High       |
 
-**How switching works (user-friendly options):**
-1. **Global config**: `zeroclaw config set shell.profile autonomous`
-2. **Per-session / per-project**: `--shell-profile research` or `.zeroclaw.json` override
-3. **Agent-initiated switch**: The agent itself can say “Switching to research profile for this exploration phase — approve?” (still safe, just one-time confirmation)
-4. **Hot-swap during a session**: `zeroclaw shell profile research`
+**How switching works (implemented):**
+1. **Global config** — edit `~/.zeroclaw/config.toml` (or your active workspace `config.toml`) and set `[shell].profile` to `safe`, `balanced`, or `autonomous` (or a custom id from `[[shell.profiles]]`). See [`docs/reference/api/config-reference.md`](reference/api/config-reference.md#shell).
+2. **CLI** — `zeroclaw shell profile <name>` writes `shell.profile` and validates; **restart** the gateway or agent afterward (no in-process hot swap).
+3. **Tests / automation** — `ZEROCLAW_SHELL_PROFILE` overrides the profile after load.
+
+Legacy `[shell_tool]` is migrated on first load to `[shell]` with `profile = "safe"` (and optional backup). Remove any stale `[shell_tool]` block from config once you are satisfied.
 
 This keeps Zeroclaw’s Rust-native lightness while optionally plugging in the heavier (but smarter) analysis layer only when the user wants it.
 

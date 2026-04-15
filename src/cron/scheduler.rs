@@ -16,9 +16,7 @@ use crate::security::SecurityPolicy;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use futures_util::{stream, StreamExt};
-use std::process::Stdio;
 use std::sync::Arc;
-use tokio::process::Command;
 use tokio::time::{self, Duration};
 
 const MIN_POLL_SECONDS: u64 = 5;
@@ -719,12 +717,17 @@ async fn run_job_command_with_timeout(
         );
     }
 
-    let child = match build_cron_shell_command(&job.command, &config.workspace_dir) {
+    let child = match crate::shell::ShellEngine::build_std_command_for_cron(
+        &config.shell,
+        &job.command,
+        &config.workspace_dir,
+        security,
+    ) {
         Ok(mut cmd) => match cmd.spawn() {
             Ok(child) => child,
             Err(e) => return (false, format!("spawn error: {e}")),
         },
-        Err(e) => return (false, format!("shell setup error: {e}")),
+        Err(e) => return (false, e),
     };
 
     match time::timeout(timeout, child.wait_with_output()).await {
@@ -745,35 +748,6 @@ async fn run_job_command_with_timeout(
             format!("job timed out after {}s", timeout.as_secs_f64()),
         ),
     }
-}
-
-/// Build a shell `Command` for cron job execution.
-///
-/// Uses `sh -c <command>` (non-login shell). On Windows, ZeroClaw users
-/// typically have Git Bash installed which provides `sh` in PATH, and
-/// cron commands are written with Unix shell syntax. The previous `-lc`
-/// (login shell) flag was dropped: login shells load the full user
-/// profile on every invocation which is slow and may cause side effects.
-///
-/// The command is configured with:
-/// - `current_dir` set to the workspace
-/// - `stdin` piped to `/dev/null` (no interactive input)
-/// - `stdout` and `stderr` piped for capture
-/// - `kill_on_drop(true)` for safe timeout handling
-fn build_cron_shell_command(
-    command: &str,
-    workspace_dir: &std::path::Path,
-) -> anyhow::Result<Command> {
-    let mut cmd = Command::new("sh");
-    cmd.arg("-c")
-        .arg(command)
-        .current_dir(workspace_dir)
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .kill_on_drop(true);
-
-    Ok(cmd)
 }
 
 #[cfg(test)]
@@ -1398,22 +1372,36 @@ mod tests {
     #[test]
     fn build_cron_shell_command_uses_sh_non_login() {
         let workspace = std::env::temp_dir();
-        let cmd = build_cron_shell_command("echo cron-test", &workspace).unwrap();
+        let shell = crate::config::ShellSection::default();
+        let sec = SecurityPolicy::default();
+        let cmd = crate::shell::ShellEngine::build_std_command_for_cron(
+            &shell,
+            "echo cron-test",
+            &workspace,
+            &sec,
+        )
+        .unwrap();
         let debug = format!("{cmd:?}");
         assert!(debug.contains("echo cron-test"));
         assert!(debug.contains("\"sh\""), "should use sh: {debug}");
-        // Must NOT use login shell (-l) — login shells load full profile
-        // and are slow/unpredictable for cron jobs.
         assert!(
             !debug.contains("\"-lc\""),
-            "must not use login shell: {debug}"
+            "must not use login shell by default: {debug}"
         );
     }
 
     #[tokio::test]
     async fn build_cron_shell_command_executes_successfully() {
         let workspace = std::env::temp_dir();
-        let mut cmd = build_cron_shell_command("echo cron-ok", &workspace).unwrap();
+        let shell = crate::config::ShellSection::default();
+        let sec = SecurityPolicy::default();
+        let mut cmd = crate::shell::ShellEngine::build_std_command_for_cron(
+            &shell,
+            "echo cron-ok",
+            &workspace,
+            &sec,
+        )
+        .unwrap();
         let output = cmd.output().await.unwrap();
         assert!(output.status.success());
         let stdout = String::from_utf8_lossy(&output.stdout);

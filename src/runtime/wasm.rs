@@ -308,6 +308,7 @@ impl RuntimeAdapter for WasmRuntime {
         &self,
         _command: &str,
         _workspace_dir: &Path,
+        _login_shell: bool,
     ) -> anyhow::Result<tokio::process::Command> {
         bail!(
             "WASM runtime does not support shell commands. \
@@ -377,7 +378,7 @@ mod tests {
     #[test]
     fn wasm_shell_command_errors() {
         let rt = WasmRuntime::new(default_config());
-        let result = rt.build_shell_command("echo hello", Path::new("/tmp"));
+        let result = rt.build_shell_command("echo hello", Path::new("/tmp"), false);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("does not support shell"));
     }

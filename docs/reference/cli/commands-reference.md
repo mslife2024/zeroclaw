@@ -25,6 +25,7 @@ Last verified: **April 15, 2026**.
 | `migrate` | Import from external runtimes (currently OpenClaw) |
 | `config` | Export machine-readable config schema |
 | `mcp` | Run ZeroClaw as an MCP tool server (stdio or HTTP) |
+| `shell` | Set the shell execution profile in `config.toml` (restart required) |
 | `completions` | Generate shell completion scripts to stdout |
 | `hardware` | Discover and introspect USB hardware |
 | `peripheral` | Configure and flash peripherals |
@@ -70,6 +71,14 @@ Tip:
 
 - `zeroclaw mcp serve` — stdio MCP (default; newline-delimited JSON-RPC)
 - `zeroclaw mcp serve --transport http [--bind <ADDR>] [--port <PORT>]` — HTTP `POST /mcp` (see [`mcp-serve.md`](../../mcp-serve.md) and `[mcp_serve]` in config)
+
+### `shell`
+
+- `zeroclaw shell profile safe` — set `[shell].profile` to `safe` (writes `config.toml`)
+- `zeroclaw shell profile balanced` / `zeroclaw shell profile autonomous` — same for built-in tiers
+- Custom ids must exist under `[[shell.profiles]]` in config (validated before save)
+
+Restart the gateway or agent after changing profile; the engine reads the profile at process start only.
 
 ### `estop`
 

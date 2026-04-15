@@ -87,6 +87,7 @@ impl RuntimeAdapter for DockerRuntime {
         &self,
         command: &str,
         workspace_dir: &Path,
+        login_shell: bool,
     ) -> anyhow::Result<tokio::process::Command> {
         let mut process = tokio::process::Command::new("docker");
         process
@@ -127,11 +128,12 @@ impl RuntimeAdapter for DockerRuntime {
                 .arg("/workspace");
         }
 
-        process
-            .arg(self.config.image.trim())
-            .arg("sh")
-            .arg("-c")
-            .arg(command);
+        process.arg(self.config.image.trim()).arg("sh");
+        if login_shell {
+            process.args(["-lc", command]);
+        } else {
+            process.arg("-c").arg(command);
+        }
 
         Ok(process)
     }
@@ -170,7 +172,7 @@ mod tests {
 
         let workspace = std::env::temp_dir();
         let command = runtime
-            .build_shell_command("echo hello", &workspace)
+            .build_shell_command("echo hello", &workspace, false)
             .unwrap();
         let debug = format!("{command:?}");
 
@@ -192,7 +194,7 @@ mod tests {
         let runtime = DockerRuntime::new(cfg);
 
         let outside = PathBuf::from("/tmp/blocked_workspace");
-        let result = runtime.build_shell_command("echo test", &outside);
+        let result = runtime.build_shell_command("echo test", &outside, false);
 
         assert!(result.is_err());
     }
@@ -208,7 +210,7 @@ mod tests {
         let runtime = DockerRuntime::new(cfg);
         let workspace = std::env::temp_dir();
         let cmd = runtime
-            .build_shell_command("echo hello", &workspace)
+            .build_shell_command("echo hello", &workspace, false)
             .unwrap();
         let debug = format!("{cmd:?}");
         assert!(
@@ -226,7 +228,7 @@ mod tests {
         let runtime = DockerRuntime::new(cfg);
         let workspace = std::env::temp_dir();
         let cmd = runtime
-            .build_shell_command("echo hello", &workspace)
+            .build_shell_command("echo hello", &workspace, false)
             .unwrap();
         let debug = format!("{cmd:?}");
         assert!(
@@ -243,7 +245,7 @@ mod tests {
             ..DockerRuntimeConfig::default()
         };
         let runtime = DockerRuntime::new(cfg);
-        let result = runtime.build_shell_command("echo test", Path::new("/"));
+        let result = runtime.build_shell_command("echo test", Path::new("/"), false);
         assert!(
             result.is_err(),
             "mounting filesystem root (/) must be refused"
@@ -264,7 +266,7 @@ mod tests {
         let runtime = DockerRuntime::new(cfg);
         let workspace = std::env::temp_dir();
         let cmd = runtime
-            .build_shell_command("echo hello", &workspace)
+            .build_shell_command("echo hello", &workspace, false)
             .unwrap();
         let debug = format!("{cmd:?}");
         assert!(

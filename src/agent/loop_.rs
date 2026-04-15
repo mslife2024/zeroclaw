@@ -3879,6 +3879,7 @@ pub async fn run(
         _reaction_handle,
         _channel_map_handle,
         _ask_user_handle,
+        shell_engine,
     ) = tools::all_tools_with_runtime(
         Arc::new(config.clone()),
         &security,
@@ -4058,7 +4059,12 @@ pub async fn run(
 
     // Register skill-defined tools as callable tool specs in the tool registry
     // so the LLM can invoke them via native function calling, not just XML prompts.
-    tools::register_skill_tools(&mut tools_registry, &skills, security.clone());
+    tools::register_skill_tools(
+        &mut tools_registry,
+        &skills,
+        security.clone(),
+        shell_engine,
+    );
 
     let mut tool_descs: Vec<(&str, &str)> = vec![
         (
@@ -4938,6 +4944,7 @@ pub async fn process_message(
         _reaction_handle_pm,
         _channel_map_handle_pm,
         _ask_user_handle_pm,
+        shell_engine,
     ) = tools::all_tools_with_runtime(
         Arc::new(config.clone()),
         &security,
@@ -5069,7 +5076,12 @@ pub async fn process_message(
     let skills = crate::skills::load_skills_with_config(&config.workspace_dir, &config);
 
     // Register skill-defined tools as callable tool specs (process_message path).
-    tools::register_skill_tools(&mut tools_registry, &skills, security.clone());
+    tools::register_skill_tools(
+        &mut tools_registry,
+        &skills,
+        security.clone(),
+        shell_engine,
+    );
 
     let mut tool_descs: Vec<(&str, &str)> = vec![
         ("shell", "Execute terminal commands."),

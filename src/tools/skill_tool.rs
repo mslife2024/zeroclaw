@@ -7,15 +7,10 @@
 
 use super::traits::{Tool, ToolResult};
 use crate::security::SecurityPolicy;
+use crate::shell::ShellEngine;
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::Duration;
-
-/// Maximum execution time for a skill shell command (seconds).
-const SKILL_SHELL_TIMEOUT_SECS: u64 = 60;
-/// Maximum output size in bytes (1 MB).
-const MAX_OUTPUT_BYTES: usize = 1_048_576;
 
 /// A tool derived from a skill's `[[tools]]` section that executes shell commands.
 pub struct SkillShellTool {
@@ -24,6 +19,7 @@ pub struct SkillShellTool {
     command_template: String,
     args: HashMap<String, String>,
     security: Arc<SecurityPolicy>,
+    shell_engine: Arc<ShellEngine>,
 }
 
 impl SkillShellTool {
@@ -35,6 +31,7 @@ impl SkillShellTool {
         skill_name: &str,
         tool: &crate::skills::SkillTool,
         security: Arc<SecurityPolicy>,
+        shell_engine: Arc<ShellEngine>,
     ) -> Self {
         Self {
             tool_name: format!("{}.{}", skill_name, tool.name),
@@ -42,6 +39,7 @@ impl SkillShellTool {
             command_template: tool.command.clone(),
             args: tool.args.clone(),
             security,
+            shell_engine,
         }
     }
 
@@ -98,108 +96,9 @@ impl Tool for SkillShellTool {
 
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
         let command = self.substitute_args(&args);
-
-        // Rate limit check
-        if self.security.is_rate_limited() {
-            return Ok(ToolResult {
-                success: false,
-                output: String::new(),
-                error: Some("Rate limit exceeded: too many actions in the last hour".into()),
-            });
-        }
-
-        // Security validation — always requires explicit approval (approved=true)
-        // since skill tools are user-defined and should be treated as medium-risk.
-        match self.security.validate_command_execution(&command, true) {
-            Ok(_) => {}
-            Err(reason) => {
-                return Ok(ToolResult {
-                    success: false,
-                    output: String::new(),
-                    error: Some(reason),
-                });
-            }
-        }
-
-        if let Some(path) = self.security.forbidden_path_argument(&command) {
-            return Ok(ToolResult {
-                success: false,
-                output: String::new(),
-                error: Some(format!("Path blocked by security policy: {path}")),
-            });
-        }
-
-        if !self.security.record_action() {
-            return Ok(ToolResult {
-                success: false,
-                output: String::new(),
-                error: Some("Rate limit exceeded: action budget exhausted".into()),
-            });
-        }
-
-        // Build and execute the command
-        let mut cmd = tokio::process::Command::new("sh");
-        cmd.arg("-c").arg(&command);
-        cmd.current_dir(&self.security.workspace_dir);
-        cmd.env_clear();
-
-        // Only pass safe environment variables
-        for var in &[
-            "PATH", "HOME", "TERM", "LANG", "LC_ALL", "USER", "SHELL", "TMPDIR",
-        ] {
-            if let Ok(val) = std::env::var(var) {
-                cmd.env(var, val);
-            }
-        }
-
-        let result =
-            tokio::time::timeout(Duration::from_secs(SKILL_SHELL_TIMEOUT_SECS), cmd.output()).await;
-
-        match result {
-            Ok(Ok(output)) => {
-                let mut stdout = String::from_utf8_lossy(&output.stdout).to_string();
-                let mut stderr = String::from_utf8_lossy(&output.stderr).to_string();
-
-                if stdout.len() > MAX_OUTPUT_BYTES {
-                    let mut b = MAX_OUTPUT_BYTES.min(stdout.len());
-                    while b > 0 && !stdout.is_char_boundary(b) {
-                        b -= 1;
-                    }
-                    stdout.truncate(b);
-                    stdout.push_str("\n... [output truncated at 1MB]");
-                }
-                if stderr.len() > MAX_OUTPUT_BYTES {
-                    let mut b = MAX_OUTPUT_BYTES.min(stderr.len());
-                    while b > 0 && !stderr.is_char_boundary(b) {
-                        b -= 1;
-                    }
-                    stderr.truncate(b);
-                    stderr.push_str("\n... [stderr truncated at 1MB]");
-                }
-
-                Ok(ToolResult {
-                    success: output.status.success(),
-                    output: stdout,
-                    error: if stderr.is_empty() {
-                        None
-                    } else {
-                        Some(stderr)
-                    },
-                })
-            }
-            Ok(Err(e)) => Ok(ToolResult {
-                success: false,
-                output: String::new(),
-                error: Some(format!("Failed to execute command: {e}")),
-            }),
-            Err(_) => Ok(ToolResult {
-                success: false,
-                output: String::new(),
-                error: Some(format!(
-                    "Command timed out after {SKILL_SHELL_TIMEOUT_SECS}s and was killed"
-                )),
-            }),
-        }
+        // Skill-defined commands are treated as approved for autonomy gating
+        // (same as the previous `approved=true` behavior).
+        Ok(self.shell_engine.run_command(&command, true).await)
     }
 }
 
@@ -215,6 +114,18 @@ mod tests {
             workspace_dir: std::env::temp_dir(),
             ..SecurityPolicy::default()
         })
+    }
+
+    fn test_engine() -> Arc<ShellEngine> {
+        Arc::new(
+            ShellEngine::new(
+                crate::config::ShellSection::default(),
+                test_security(),
+                Arc::new(crate::runtime::NativeRuntime::new()),
+                Arc::new(crate::security::NoopSandbox),
+            )
+            .unwrap(),
+        )
     }
 
     fn sample_skill_tool() -> SkillTool {
@@ -236,19 +147,19 @@ mod tests {
 
     #[test]
     fn skill_shell_tool_name_is_prefixed() {
-        let tool = SkillShellTool::new("my_skill", &sample_skill_tool(), test_security());
+        let tool = SkillShellTool::new("my_skill", &sample_skill_tool(), test_security(), test_engine());
         assert_eq!(tool.name(), "my_skill.run_lint");
     }
 
     #[test]
     fn skill_shell_tool_description() {
-        let tool = SkillShellTool::new("my_skill", &sample_skill_tool(), test_security());
+        let tool = SkillShellTool::new("my_skill", &sample_skill_tool(), test_security(), test_engine());
         assert_eq!(tool.description(), "Run the linter on a file");
     }
 
     #[test]
     fn skill_shell_tool_parameters_schema() {
-        let tool = SkillShellTool::new("my_skill", &sample_skill_tool(), test_security());
+        let tool = SkillShellTool::new("my_skill", &sample_skill_tool(), test_security(), test_engine());
         let schema = tool.parameters_schema();
 
         assert_eq!(schema["type"], "object");
@@ -264,7 +175,7 @@ mod tests {
 
     #[test]
     fn skill_shell_tool_substitute_args() {
-        let tool = SkillShellTool::new("my_skill", &sample_skill_tool(), test_security());
+        let tool = SkillShellTool::new("my_skill", &sample_skill_tool(), test_security(), test_engine());
         let result = tool.substitute_args(&serde_json::json!({
             "file": "src/main.rs",
             "format": "json"
@@ -274,7 +185,7 @@ mod tests {
 
     #[test]
     fn skill_shell_tool_substitute_missing_arg() {
-        let tool = SkillShellTool::new("my_skill", &sample_skill_tool(), test_security());
+        let tool = SkillShellTool::new("my_skill", &sample_skill_tool(), test_security(), test_engine());
         let result = tool.substitute_args(&serde_json::json!({"file": "test.rs"}));
         // Missing {{format}} placeholder stays in the command
         assert!(result.contains("{{format}}"));
@@ -290,7 +201,7 @@ mod tests {
             command: "echo hello".to_string(),
             args: HashMap::new(),
         };
-        let tool = SkillShellTool::new("s", &st, test_security());
+        let tool = SkillShellTool::new("s", &st, test_security(), test_engine());
         let schema = tool.parameters_schema();
         assert_eq!(schema["type"], "object");
         assert!(schema["properties"].as_object().unwrap().is_empty());
@@ -306,7 +217,7 @@ mod tests {
             command: "echo hello-skill".to_string(),
             args: HashMap::new(),
         };
-        let tool = SkillShellTool::new("test", &st, test_security());
+        let tool = SkillShellTool::new("test", &st, test_security(), test_engine());
         let result = tool.execute(serde_json::json!({})).await.unwrap();
         assert!(result.success);
         assert!(result.output.contains("hello-skill"));
@@ -314,7 +225,7 @@ mod tests {
 
     #[test]
     fn skill_shell_tool_spec_roundtrip() {
-        let tool = SkillShellTool::new("my_skill", &sample_skill_tool(), test_security());
+        let tool = SkillShellTool::new("my_skill", &sample_skill_tool(), test_security(), test_engine());
         let spec = tool.spec();
         assert_eq!(spec.name, "my_skill.run_lint");
         assert_eq!(spec.description, "Run the linter on a file");

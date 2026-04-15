@@ -819,6 +819,7 @@ pub fn skills_to_prompt_with_mode(
 pub fn skills_to_tools(
     skills: &[Skill],
     security: std::sync::Arc<crate::security::SecurityPolicy>,
+    shell_engine: std::sync::Arc<crate::shell::ShellEngine>,
 ) -> Vec<Box<dyn crate::tools::traits::Tool>> {
     let mut tools: Vec<Box<dyn crate::tools::traits::Tool>> = Vec::new();
     for skill in skills {
@@ -829,6 +830,7 @@ pub fn skills_to_tools(
                         &skill.name,
                         tool,
                         security.clone(),
+                        shell_engine.clone(),
                     )));
                 }
                 "http" => {

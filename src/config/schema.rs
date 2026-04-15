@@ -416,9 +416,9 @@ pub struct Config {
     #[serde(default)]
     pub sop: SopConfig,
 
-    /// Shell tool configuration (`[shell_tool]`).
+    /// Shell execution profile and tunables (`[shell]`).
     #[serde(default)]
-    pub shell_tool: ShellToolConfig,
+    pub shell: ShellSection,
 }
 
 /// Multi-client workspace isolation configuration.
@@ -2748,29 +2748,143 @@ impl Default for TextBrowserConfig {
     }
 }
 
-// ── Shell tool ───────────────────────────────────────────────────
+// ── Shell execution (unified engine) ─────────────────────────────
 
-/// Shell tool configuration (`[shell_tool]` section).
-///
-/// Controls the behaviour of the `shell` execution tool. The main
-/// tunable is `timeout_secs` — the maximum wall-clock time a single
-/// shell command may run before it is killed.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct ShellToolConfig {
-    /// Maximum shell command execution time in seconds (default: 60).
-    #[serde(default = "default_shell_tool_timeout_secs")]
-    pub timeout_secs: u64,
+fn default_shell_profile_str() -> String {
+    "safe".to_string()
 }
 
-fn default_shell_tool_timeout_secs() -> u64 {
+fn default_shell_timeout_secs() -> u64 {
     60
 }
 
-impl Default for ShellToolConfig {
+fn default_autonomous_max_validators() -> u32 {
+    64
+}
+
+/// Top-level shell configuration (`[shell]`).
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct ShellSection {
+    /// Active profile: `safe`, `balanced`, `autonomous`, or a custom id from `[[shell.profiles]]`.
+    #[serde(default = "default_shell_profile_str")]
+    pub profile: String,
+    /// Maximum wall-clock time for one shell command (seconds).
+    #[serde(default = "default_shell_timeout_secs")]
+    pub timeout_secs: u64,
+    /// Use a login shell (`sh -lc` on Unix) instead of `sh -c`.
+    #[serde(default)]
+    pub login_shell: bool,
+    /// Overrides when profile is `safe` (or custom extends safe).
+    #[serde(default)]
+    pub safe: ShellSafeProfileConfig,
+    /// Overrides when profile is `balanced` (or custom extends balanced).
+    #[serde(default)]
+    pub balanced: ShellBalancedProfileConfig,
+    /// Overrides when profile is `autonomous` (or custom extends autonomous).
+    #[serde(default)]
+    pub autonomous: ShellAutonomousProfileConfig,
+    /// User-defined profiles extending built-ins.
+    #[serde(default)]
+    pub profiles: Vec<ShellCustomProfileEntry>,
+}
+
+impl Default for ShellSection {
     fn default() -> Self {
         Self {
-            timeout_secs: default_shell_tool_timeout_secs(),
+            profile: default_shell_profile_str(),
+            timeout_secs: default_shell_timeout_secs(),
+            login_shell: false,
+            safe: ShellSafeProfileConfig::default(),
+            balanced: ShellBalancedProfileConfig::default(),
+            autonomous: ShellAutonomousProfileConfig::default(),
+            profiles: Vec::new(),
         }
+    }
+}
+
+impl ShellSection {
+    /// Normalize profile string (trim + lowercase).
+    pub fn normalized_profile(&self) -> String {
+        self.profile.trim().to_ascii_lowercase()
+    }
+
+    /// Validate shell section (called from [`Config::validate`]).
+    pub fn validate(&self) -> Result<()> {
+        for (i, prof) in self.profiles.iter().enumerate() {
+            if prof.id.trim().is_empty() {
+                anyhow::bail!("shell.profiles[{i}].id must not be empty");
+            }
+            let ex = prof.extends_normalized();
+            if !matches!(ex.as_str(), "safe" | "balanced" | "autonomous") {
+                anyhow::bail!(
+                    "shell.profiles[{i}].extends must be safe|balanced|autonomous (got {ex:?})"
+                );
+            }
+        }
+
+        let p = self.normalized_profile();
+        if p.is_empty() {
+            anyhow::bail!("shell.profile must not be empty");
+        }
+        if self.timeout_secs == 0 {
+            anyhow::bail!("shell.timeout_secs must be greater than 0");
+        }
+        if matches!(p.as_str(), "safe" | "balanced" | "autonomous") {
+            return Ok(());
+        }
+        for entry in &self.profiles {
+            if entry.id.trim().eq_ignore_ascii_case(&p) {
+                return Ok(());
+            }
+        }
+        anyhow::bail!(
+            "shell.profile must be one of safe|balanced|autonomous or match [[shell.profiles]] id (got {p:?})"
+        );
+    }
+}
+
+/// Optional extra deny paths for the safe pipeline (`[shell.safe]`).
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Default)]
+pub struct ShellSafeProfileConfig {
+    #[serde(default)]
+    pub forbidden_paths: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Default)]
+pub struct ShellBalancedProfileConfig {
+    /// Reserved for future snapshot / env fidelity (currently unused).
+    #[serde(default)]
+    pub snapshot_enabled: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct ShellAutonomousProfileConfig {
+    #[serde(default = "default_autonomous_max_validators")]
+    pub max_validators: u32,
+    #[serde(default)]
+    pub spill_threshold_bytes: usize,
+}
+
+impl Default for ShellAutonomousProfileConfig {
+    fn default() -> Self {
+        Self {
+            max_validators: default_autonomous_max_validators(),
+            spill_threshold_bytes: 0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct ShellCustomProfileEntry {
+    pub id: String,
+    /// One of: safe, balanced, autonomous.
+    #[serde(default = "default_shell_profile_str")]
+    pub extends: String,
+}
+
+impl ShellCustomProfileEntry {
+    pub(crate) fn extends_normalized(&self) -> String {
+        self.extends.trim().to_ascii_lowercase()
     }
 }
 
@@ -8182,7 +8296,7 @@ impl Default for Config {
             gemini_cli: GeminiCliConfig::default(),
             opencode_cli: OpenCodeCliConfig::default(),
             sop: SopConfig::default(),
-            shell_tool: ShellToolConfig::default(),
+            shell: ShellSection::default(),
         }
     }
 }
@@ -8673,6 +8787,49 @@ async fn ensure_bootstrap_files(workspace_dir: &Path) -> Result<()> {
     Ok(())
 }
 
+/// Result of migrating deprecated `[shell_tool]` at the root TOML table.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ShellTomlMigration {
+    None,
+    /// `[shell_tool]` was dropped because `[shell]` already exists.
+    RemovedShellToolOnly,
+    /// `[shell_tool]` was converted into a new `[shell]` section.
+    MigratedFromShellTool,
+}
+
+/// Merge deprecated top-level `[shell_tool]` into `[shell]` when `[shell]` is absent.
+pub(crate) fn migrate_shell_tool_table_in_root(root: &mut toml::Value) -> ShellTomlMigration {
+    let Some(table) = root.as_table_mut() else {
+        return ShellTomlMigration::None;
+    };
+    if !table.contains_key("shell_tool") {
+        return ShellTomlMigration::None;
+    }
+    if table.contains_key("shell") {
+        let _ = table.remove("shell_tool");
+        tracing::warn!(
+            "Removed deprecated [shell_tool]: [shell] is already present. Delete the stale [shell_tool] block from config.toml."
+        );
+        return ShellTomlMigration::RemovedShellToolOnly;
+    }
+    let shell_tool = table
+        .remove("shell_tool")
+        .unwrap_or_else(|| toml::Value::Table(toml::map::Map::new()));
+    let mut shell_tab = toml::map::Map::new();
+    shell_tab.insert(
+        "profile".to_string(),
+        toml::Value::String("safe".to_string()),
+    );
+    if let Some(tt) = shell_tool.get("timeout_secs") {
+        shell_tab.insert("timeout_secs".to_string(), tt.clone());
+    }
+    table.insert("shell".to_string(), toml::Value::Table(shell_tab));
+    tracing::warn!(
+        "Migrated deprecated [shell_tool] to [shell] with profile='safe'. Review config.toml and restart zeroclaw."
+    );
+    ShellTomlMigration::MigratedFromShellTool
+}
+
 impl Config {
     pub async fn load_or_init() -> Result<Self> {
         let (default_zeroclaw_dir, default_workspace_dir) = default_config_and_workspace_dirs()?;
@@ -8713,6 +8870,23 @@ impl Config {
                 .await
                 .context("Failed to read config file")?;
 
+            let mut root: toml::Value =
+                toml::from_str(&contents).context("Failed to parse config file as TOML")?;
+            let migration = migrate_shell_tool_table_in_root(&mut root);
+            if migration == ShellTomlMigration::MigratedFromShellTool {
+                let ts = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_secs())
+                    .unwrap_or(0);
+                let bak_path = config_path.with_extension(format!("toml.bak.{ts}"));
+                if let Err(e) = fs::write(&bak_path, &contents).await {
+                    tracing::warn!(path = %bak_path.display(), error = %e, "Failed to write config backup after shell migration");
+                } else {
+                    tracing::info!(path = %bak_path.display(), "Wrote config backup before shell table migration");
+                }
+            }
+            let merged = toml::to_string(&root).context("Failed to serialize config after shell migration")?;
+
             // Deserialize the config with the standard TOML parser.
             //
             // Previously this used `serde_ignored::deserialize` for both
@@ -8725,7 +8899,7 @@ impl Config {
             // We now deserialize with `toml::from_str` (which is correct)
             // and run `serde_ignored` separately just for diagnostics.
             let mut config: Config =
-                toml::from_str(&contents).context("Failed to deserialize config file")?;
+                toml::from_str(&merged).context("Failed to deserialize config file")?;
 
             // Ensure the built-in default auto_approve entries are always
             // present.  When a user specifies `auto_approve` in their TOML
@@ -8745,8 +8919,8 @@ impl Config {
             // result — only the ignored-path list is kept.
             let mut ignored_paths: Vec<String> = Vec::new();
             let _: Result<Config, _> = serde_ignored::deserialize(
-                toml::de::Deserializer::parse(&contents)
-                    .unwrap_or_else(|_| unreachable!("already parsed above")),
+                toml::de::Deserializer::parse(&merged)
+                    .context("Failed to parse merged config for unknown-key diagnostics")?,
                 |path| {
                     ignored_paths.push(path.to_string());
                 },
@@ -9320,6 +9494,8 @@ impl Config {
                 );
             }
         }
+
+        self.shell.validate()?;
 
         // Security OTP / estop
         if self.security.otp.challenge_max_attempts == 0 {
@@ -9957,6 +10133,14 @@ impl Config {
             let trimmed = path.trim();
             if !trimmed.is_empty() {
                 self.skills.open_skills_dir = Some(trimmed.to_string());
+            }
+        }
+
+        // Shell profile override: ZEROCLAW_SHELL_PROFILE (safe|balanced|autonomous or custom id)
+        if let Ok(profile) = std::env::var("ZEROCLAW_SHELL_PROFILE") {
+            let trimmed = profile.trim();
+            if !trimmed.is_empty() {
+                self.shell.profile = trimmed.to_string();
             }
         }
 
@@ -11244,7 +11428,7 @@ default_temperature = 0.7
             gemini_cli: GeminiCliConfig::default(),
             opencode_cli: OpenCodeCliConfig::default(),
             sop: SopConfig::default(),
-            shell_tool: ShellToolConfig::default(),
+            shell: ShellSection::default(),
         };
 
         let toml_str = toml::to_string_pretty(&config).unwrap();
@@ -11772,7 +11956,7 @@ default_temperature = 0.7
             gemini_cli: GeminiCliConfig::default(),
             opencode_cli: OpenCodeCliConfig::default(),
             sop: SopConfig::default(),
-            shell_tool: ShellToolConfig::default(),
+            shell: ShellSection::default(),
         };
 
         config.save().await.unwrap();

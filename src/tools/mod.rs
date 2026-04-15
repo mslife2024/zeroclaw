@@ -209,6 +209,7 @@ use crate::config::{Config, DelegateAgentConfig};
 use crate::memory::Memory;
 use crate::runtime::{NativeRuntime, RuntimeAdapter};
 use crate::security::{create_sandbox, SecurityPolicy};
+use crate::shell::ShellEngine;
 use async_trait::async_trait;
 use parking_lot::RwLock;
 use std::collections::HashMap;
@@ -284,8 +285,17 @@ pub fn default_tools_with_runtime(
     security: Arc<SecurityPolicy>,
     runtime: Arc<dyn RuntimeAdapter>,
 ) -> Vec<Box<dyn Tool>> {
+    let shell_engine = Arc::new(
+        ShellEngine::new(
+            crate::config::ShellSection::default(),
+            security.clone(),
+            runtime.clone(),
+            Arc::new(crate::security::NoopSandbox),
+        )
+        .expect("default shell section resolves"),
+    );
     vec![
-        Box::new(ShellTool::new(security.clone(), runtime)),
+        Box::new(ShellTool::from_engine(shell_engine)),
         Box::new(FileReadTool::new(security.clone())),
         Box::new(FileWriteTool::new(security.clone())),
         Box::new(FileEditTool::new(security.clone())),
@@ -303,8 +313,9 @@ pub fn register_skill_tools(
     tools_registry: &mut Vec<Box<dyn Tool>>,
     skills: &[crate::skills::Skill],
     security: Arc<SecurityPolicy>,
+    shell_engine: Arc<ShellEngine>,
 ) {
-    let skill_tools = crate::skills::skills_to_tools(skills, security);
+    let skill_tools = crate::skills::skills_to_tools(skills, security, shell_engine);
     let existing_names: std::collections::HashSet<String> = tools_registry
         .iter()
         .map(|t| t.name().to_string())
@@ -347,6 +358,7 @@ pub fn all_tools(
     Option<ChannelMapHandle>,
     ChannelMapHandle,
     Option<ChannelMapHandle>,
+    Arc<ShellEngine>,
 ) {
     all_tools_with_runtime(
         config,
@@ -393,14 +405,21 @@ pub fn all_tools_with_runtime(
     Option<ChannelMapHandle>,
     ChannelMapHandle,
     Option<ChannelMapHandle>,
+    Arc<ShellEngine>,
 ) {
     let has_shell_access = runtime.has_shell_access();
     let sandbox = create_sandbox(&root_config.security);
+    let shell_engine = Arc::new(
+        ShellEngine::new(
+            root_config.shell.clone(),
+            security.clone(),
+            runtime.clone(),
+            sandbox.clone(),
+        )
+        .expect("shell config should be validated before building tools"),
+    );
     let mut tool_arcs: Vec<Arc<dyn Tool>> = vec![
-        Arc::new(
-            ShellTool::new_with_sandbox(security.clone(), runtime, sandbox)
-                .with_timeout_secs(root_config.shell_tool.timeout_secs),
-        ),
+        Arc::new(ShellTool::from_engine(shell_engine.clone())),
         Arc::new(FileReadTool::new(security.clone())),
         Arc::new(FileWriteTool::new(security.clone())),
         Arc::new(FileEditTool::new(security.clone())),
@@ -832,6 +851,7 @@ pub fn all_tools_with_runtime(
                     Some(reaction_handle),
                     channel_map_handle,
                     Some(ask_user_handle),
+                    shell_engine,
                 );
             }
 
@@ -1022,6 +1042,7 @@ pub fn all_tools_with_runtime(
         Some(reaction_handle),
         channel_map_handle,
         Some(ask_user_handle),
+        shell_engine,
     )
 }
 
@@ -1066,7 +1087,7 @@ mod tests {
         let http = crate::config::HttpRequestConfig::default();
         let cfg = test_config(&tmp);
 
-        let (tools, _, _, _, _) = all_tools(
+        let (tools, _, _, _, _, _) = all_tools(
             Arc::new(Config::default()),
             &security,
             mem,
@@ -1109,7 +1130,7 @@ mod tests {
         let http = crate::config::HttpRequestConfig::default();
         let cfg = test_config(&tmp);
 
-        let (tools, _, _, _, _) = all_tools(
+        let (tools, _, _, _, _, _) = all_tools(
             Arc::new(Config::default()),
             &security,
             mem,
@@ -1263,7 +1284,7 @@ mod tests {
             },
         );
 
-        let (tools, _, _, _, _) = all_tools(
+        let (tools, _, _, _, _, _) = all_tools(
             Arc::new(Config::default()),
             &security,
             mem,
@@ -1297,7 +1318,7 @@ mod tests {
         let http = crate::config::HttpRequestConfig::default();
         let cfg = test_config(&tmp);
 
-        let (tools, _, _, _, _) = all_tools(
+        let (tools, _, _, _, _, _) = all_tools(
             Arc::new(Config::default()),
             &security,
             mem,
@@ -1332,7 +1353,7 @@ mod tests {
         let mut cfg = test_config(&tmp);
         cfg.skills.prompt_injection_mode = crate::config::SkillsPromptInjectionMode::Compact;
 
-        let (tools, _, _, _, _) = all_tools(
+        let (tools, _, _, _, _, _) = all_tools(
             Arc::new(cfg.clone()),
             &security,
             mem,
@@ -1367,7 +1388,7 @@ mod tests {
         let mut cfg = test_config(&tmp);
         cfg.skills.prompt_injection_mode = crate::config::SkillsPromptInjectionMode::Full;
 
-        let (tools, _, _, _, _) = all_tools(
+        let (tools, _, _, _, _, _) = all_tools(
             Arc::new(cfg.clone()),
             &security,
             mem,

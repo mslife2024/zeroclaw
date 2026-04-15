@@ -38,11 +38,17 @@ impl RuntimeAdapter for NativeRuntime {
         &self,
         command: &str,
         workspace_dir: &Path,
+        login_shell: bool,
     ) -> anyhow::Result<tokio::process::Command> {
         #[cfg(not(target_os = "windows"))]
         {
             let mut process = tokio::process::Command::new("sh");
-            process.arg("-c").arg(command).current_dir(workspace_dir);
+            if login_shell {
+                process.args(["-lc", command]);
+            } else {
+                process.arg("-c").arg(command);
+            }
+            process.current_dir(workspace_dir);
             Ok(process)
         }
 
@@ -94,7 +100,7 @@ mod tests {
     fn native_builds_shell_command() {
         let cwd = std::env::temp_dir();
         let command = NativeRuntime::new()
-            .build_shell_command("echo hello", &cwd)
+            .build_shell_command("echo hello", &cwd, false)
             .unwrap();
         let debug = format!("{command:?}");
         assert!(debug.contains("echo hello"));

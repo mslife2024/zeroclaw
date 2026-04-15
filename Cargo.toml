@@ -231,6 +231,8 @@ default = [
     "channel-lark",
     "skill-creation",
 ]
+# Extra autonomous shell validators / analysis (larger binary when enabled).
+shell-full = []
 channel-nostr = ["dep:nostr-sdk"]
 hardware = ["nusb", "tokio-serial"]
 channel-matrix = ["dep:matrix-sdk"]

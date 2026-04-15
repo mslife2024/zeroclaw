@@ -816,5 +816,6 @@ max_concurrent_total = 4
 approval_timeout_secs = 300
 max_finished_runs = 100
 
-[shell_tool]
+[shell]
+profile = "safe"
 timeout_secs = 60

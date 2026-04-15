@@ -494,8 +494,14 @@ impl Agent {
             None
         };
 
-        let (mut tools, delegate_handle, _reaction_handle, _channel_map_handle, _ask_user_handle) =
-            tools::all_tools_with_runtime(
+        let (
+            mut tools,
+            delegate_handle,
+            _reaction_handle,
+            _channel_map_handle,
+            _ask_user_handle,
+            _shell_engine,
+        ) = tools::all_tools_with_runtime(
                 Arc::new(config.clone()),
                 &security,
                 runtime,

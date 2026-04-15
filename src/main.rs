@@ -111,6 +111,7 @@ mod skillforge;
 mod skills;
 mod sop;
 mod tools;
+mod shell;
 mod tunnel;
 mod util;
 mod verifiable_intent;
@@ -460,6 +461,12 @@ Examples:
         memory_command: MemoryCommands,
     },
 
+    /// Shell execution profile (requires restart to apply)
+    Shell {
+        #[command(subcommand)]
+        shell_command: ShellCommands,
+    },
+
     /// Expose ZeroClaw tools as an MCP server (stdio JSON-RPC for Cursor, Claude Desktop, etc.)
     Mcp {
         #[command(subcommand)]
@@ -805,6 +812,15 @@ enum McpCommands {
         /// HTTP listen port (default: `[mcp_serve].http_port`)
         #[arg(long)]
         port: Option<u16>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum ShellCommands {
+    /// Set `shell.profile` in config.toml (restart gateway/agent afterward)
+    Profile {
+        /// One of: safe, balanced, autonomous, or a custom id from [[shell.profiles]]
+        name: String,
     },
 }
 
@@ -1422,6 +1438,27 @@ async fn main() -> Result<()> {
         Commands::Memory { memory_command } => {
             memory::cli::handle_command(memory_command, &config).await
         }
+
+        Commands::Shell { shell_command } => match shell_command {
+            ShellCommands::Profile { name } => {
+                let trimmed = name.trim().to_string();
+                if trimmed.is_empty() {
+                    bail!("profile name must not be empty");
+                }
+                let mut probe = config.shell.clone();
+                probe.profile = trimmed.clone();
+                probe.validate().context("Invalid shell.profile value")?;
+                config.shell.profile = trimmed;
+                config.validate().context("config validation failed after shell.profile update")?;
+                config.save().await.context("Failed to save config.toml")?;
+                println!(
+                    "Updated shell.profile in {}.",
+                    config.config_path.display()
+                );
+                println!("Restart the zeroclaw gateway or agent for this change to take effect.");
+                Ok(())
+            }
+        },
 
         Commands::Mcp { mcp_command } => match mcp_command {
             McpCommands::Serve {
