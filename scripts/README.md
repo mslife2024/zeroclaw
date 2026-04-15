@@ -2,10 +2,23 @@
 
 This directory contains everything needed to cross-compile ZeroClaw and deploy it to a Raspberry Pi over SSH.
 
+## Install from a git clone
+
+The bootstrap installer is [`install.sh`](install.sh). From the repo root you can also run [`../install.sh`](../install.sh); it delegates to this script.
+
+```bash
+bash scripts/install.sh
+bash scripts/install.sh --help
+bash scripts/install.sh --api-key "sk-..." --provider openrouter
+```
+
+That is equivalent to `./install.sh …` run from the repo root (same flags and behavior).
+
 ## Contents
 
 | File | Purpose |
 |------|---------|
+| `install.sh` | Full one-command bootstrap installer (Rust build, gateway, onboarding) |
 | `deploy-rpi.sh` | One-shot cross-compile and deploy script |
 | `rpi-config.toml` | Production config template deployed to `~/.zeroclaw/config.toml` |
 | `zeroclaw.service` | systemd unit file installed on the Pi |

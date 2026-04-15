@@ -355,7 +355,7 @@ jobs:
         run: |
           mkdir -p release-assets
           find artifacts -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.dmg' -o -name 'SHA256SUMS' \) -exec cp {} release-assets/ \;
-          cp install.sh release-assets/
+          cp scripts/install.sh release-assets/install.sh
           echo "--- Assets ---"
           ls -lh release-assets/
 

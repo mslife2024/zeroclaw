@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
 # Publish mormclaw Docker image using DOCKER_SPACE_SORA (login/namespace) and DOCKER_TOKEN_SORA (API token).
-# Usage: bash docker-publish.sh [tag]
+# Usage (from repo root): bash scripts/docker-publish.sh [tag]
 #   If no tag given: uses git describe (version from latest tag + commit, e.g. 0.1.2 or 0.1.2-1-gabc1234)
-# Example: DOCKER_SPACE_SORA=myuser DOCKER_TOKEN_SORA=xxx bash docker-publish.sh
-# Example: DOCKER_SPACE_SORA=myuser DOCKER_TOKEN_SORA=xxx bash docker-publish.sh 0.1.2
+# Example: DOCKER_SPACE_SORA=myuser DOCKER_TOKEN_SORA=xxx bash scripts/docker-publish.sh
+# Example: DOCKER_SPACE_SORA=myuser DOCKER_TOKEN_SORA=xxx bash scripts/docker-publish.sh 0.1.2
 #
 # Env vars:
 #   DOCKER_SPACE_SORA - Docker Hub username or registry path (e.g. myuser or ghcr.io/myorg)
 #   DOCKER_TOKEN_SORA  - Docker API token / deployment key for authentication
 
 set -e
+
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 if [[ -n "${1}" ]]; then
   TAG="${1}"

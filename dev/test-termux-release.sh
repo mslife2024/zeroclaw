@@ -206,9 +206,9 @@ fi
 
 # --- Test 11: install.sh Termux detection ---
 info "Validating install.sh Termux detection"
-INSTALL_SH="install.sh"
+INSTALL_SH="scripts/install.sh"
 if [[ ! -f "$INSTALL_SH" ]]; then
-  INSTALL_SH="$(dirname "$0")/../install.sh"
+  INSTALL_SH="$(dirname "$0")/../scripts/install.sh"
 fi
 
 if [[ -f "$INSTALL_SH" ]]; then
