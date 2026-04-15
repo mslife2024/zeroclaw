@@ -312,6 +312,14 @@ session_persistence = true
 session_backend = "sqlite"
 session_ttl_hours = 0
 
+# Optional Telegram (see docs/setup-guides/telegram-slash-commands.md):
+# [channels_config.telegram]
+# bot_token = "123456:ABCDEF-from-BotFather"
+# allowed_users = ["123456789"]
+# stream_mode = "off"
+# control_hub_enabled = false
+# control_hub_prefix = "z"
+
 [channels_config.webhook]
 port = 8080
 listen_path = "/webhook"

@@ -319,6 +319,7 @@ Notes:
 - Precedence for enable flag: `ZEROCLAW_OPEN_SKILLS_ENABLED` → `skills.open_skills_enabled` in `config.toml` → default `false`.
 - `prompt_injection_mode = "compact"` is recommended on low-context local models to reduce startup prompt size while keeping skill files available on demand.
 - Skill loading and `zeroclaw skills install` both apply a static security audit. Skills that contain symlinks, script-like files, high-risk shell payload snippets, or unsafe markdown link traversal are rejected.
+- Per-skill **`user_invocable`** is declared in `SKILL.md` / `SKILL.toml` (not in `[skills]`). When `true`, the skill name may appear as an extra Telegram bot menu command when the channel registers `setMyCommands`. See [telegram-slash-commands.md](../../setup-guides/telegram-slash-commands.md).
 
 ## `[composio]`
 
@@ -752,6 +753,23 @@ Notes:
 - Telegram-only interruption behavior is controlled with `channels_config.telegram.interrupt_on_new_message` (default `false`).
   When enabled, a newer message from the same sender in the same chat cancels the in-flight request and preserves interrupted user context.
 - While `zeroclaw channel start` is running, updates to `default_provider`, `default_model`, `default_temperature`, `api_key`, `api_url`, and `reliability.*` are hot-applied from `config.toml` on the next inbound message.
+
+### `[channels_config.telegram]`
+
+| Key | Default | Purpose |
+| --- | --- | --- |
+| `bot_token` | _required when section present_ | Telegram Bot API token from [@BotFather](https://t.me/BotFather) |
+| `allowed_users` | `[]` (deny all) | Telegram user IDs or usernames allowed to talk to the bot; use `"*"` only if you understand the risk |
+| `stream_mode` | `off` | Progressive draft updates: `off`, `partial`, … |
+| `draft_update_interval_ms` | `1000` | Minimum time between draft edits when streaming |
+| `interrupt_on_new_message` | `false` | Cancel in-flight reply when the same sender sends a newer message |
+| `mention_only` | `false` | In groups, only respond when @-mentioned |
+| `ack_reactions` | falls back to `[channels_config].ack_reactions` | Optional per-channel override for acknowledgement reactions |
+| `proxy_url` | unset | Per-channel HTTP(S)/SOCKS proxy override |
+| `control_hub_enabled` | `false` | When `true`, `/<control_hub_prefix> …` is handled by the [Telegram control hub](../../../setup-guides/telegram-slash-commands.md) before the LLM |
+| `control_hub_prefix` | `z` | Bot command token (no slash) for the hub; must match Telegram `BotCommand` rules |
+
+Operator overview: [telegram-slash-commands.md](../../setup-guides/telegram-slash-commands.md). Design notes: [telegram-control-hub-spec.md](../../design/telegram-control-hub-spec.md).
 
 ### `[channels_config.nostr]`
 

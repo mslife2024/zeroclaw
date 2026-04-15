@@ -60,6 +60,8 @@ const translations: Record<Locale, Record<string, string>> = {
     'agent.copy_message': '复制消息',
     'agent.connected_status': '已连接',
     'agent.disconnected_status': '已断开',
+    'agent.slash_hint':
+      '斜杠命令：/new 或 /reset 清空会话 · /models 列出或切换提供商 · /model 查看或切换模型 · /config 当前路由',
 
     // Tools
     'tools.title': '可用工具',
@@ -391,6 +393,8 @@ const translations: Record<Locale, Record<string, string>> = {
     'agent.copy_message': 'Copy message',
     'agent.connected_status': 'Connected',
     'agent.disconnected_status': 'Disconnected',
+    'agent.slash_hint':
+      'Slash: /new or /reset clear session · /models list or switch provider · /model show or set model · /config current route',
 
     // Tools
     'tools.title': 'Available Tools',
@@ -744,6 +748,8 @@ const translations: Record<Locale, Record<string, string>> = {
     'agent.copy_message': 'Mesajı kopyala',
     'agent.connected_status': 'Bağlandı',
     'agent.disconnected_status': 'Bağlantı kesildi',
+    'agent.slash_hint':
+      'Komutlar: /new veya /reset oturumu temizler · /models sağlayıcı · /model model · /config rota',
 
     // Tools
     'tools.title': 'Mevcut Araçlar',

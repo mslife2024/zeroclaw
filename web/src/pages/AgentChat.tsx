@@ -4,6 +4,7 @@ import type { WsMessage } from '@/types/api';
 import { WebSocketClient } from '@/lib/ws';
 import { generateUUID } from '@/lib/uuid';
 import { useDraft } from '@/hooks/useDraft';
+import { getChatSlashCommands } from '@/lib/api';
 import { t } from '@/lib/i18n';
 
 interface ChatMessage {
@@ -29,6 +30,7 @@ export default function AgentChat() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const pendingContentRef = useRef('');
   const [streamingContent, setStreamingContent] = useState('');
+  const [slashHint, setSlashHint] = useState(() => t('agent.slash_hint'));
 
   // Persist draft to in-memory store so it survives route changes
   useEffect(() => {
@@ -146,6 +148,24 @@ export default function AgentChat() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, typing, streamingContent]);
+
+  useEffect(() => {
+    if (!connected) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const data = await getChatSlashCommands();
+        if (cancelled) return;
+        const line = data.commands.map((c) => `${c.name}: ${c.description}`).join(' · ');
+        setSlashHint(line);
+      } catch {
+        if (!cancelled) setSlashHint(t('agent.slash_hint'));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [connected]);
 
   const handleSend = () => {
     const trimmed = input.trim();
@@ -361,6 +381,12 @@ export default function AgentChat() {
             {connected ? t('agent.connected_status') : t('agent.disconnected_status')}
           </span>
         </div>
+        <p
+          className="text-center text-[10px] mt-2 max-w-4xl mx-auto leading-relaxed px-2"
+          style={{ color: 'var(--pc-text-faint)' }}
+        >
+          {slashHint}
+        </p>
       </div>
     </div>
   );

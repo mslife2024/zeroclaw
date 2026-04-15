@@ -156,6 +156,14 @@ export function getTools(): Promise<ToolSpec[]> {
   );
 }
 
+export type ChatSlashCommand = { name: string; description: string };
+export type ChatSlashCommandsResponse = { commands: ChatSlashCommand[] };
+
+/** GET /api/chat-slash-commands — gateway WebSocket slash command catalog. */
+export function getChatSlashCommands(): Promise<ChatSlashCommandsResponse> {
+  return apiFetch('/api/chat-slash-commands');
+}
+
 // ---------------------------------------------------------------------------
 // Cron
 // ---------------------------------------------------------------------------

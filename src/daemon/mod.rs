@@ -839,6 +839,8 @@ mod tests {
             mention_only: false,
             ack_reactions: None,
             proxy_url: None,
+            control_hub_enabled: false,
+            control_hub_prefix: "z".into(),
         });
         assert!(has_supervised_channels(&config));
     }
@@ -959,6 +961,8 @@ mod tests {
             mention_only: false,
             ack_reactions: None,
             proxy_url: None,
+            control_hub_enabled: false,
+            control_hub_prefix: "z".into(),
         });
 
         let target = resolve_heartbeat_delivery(&config).unwrap();
@@ -977,6 +981,8 @@ mod tests {
             mention_only: false,
             ack_reactions: None,
             proxy_url: None,
+            control_hub_enabled: false,
+            control_hub_prefix: "z".into(),
         });
 
         let target = resolve_heartbeat_delivery(&config).unwrap();

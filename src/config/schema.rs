@@ -6479,6 +6479,10 @@ fn default_draft_update_interval_ms() -> u64 {
     1000
 }
 
+fn default_telegram_control_hub_prefix() -> String {
+    "z".to_string()
+}
+
 /// Telegram bot channel configuration.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct TelegramConfig {
@@ -6509,6 +6513,14 @@ pub struct TelegramConfig {
     /// Overrides the global `[proxy]` setting for this channel only.
     #[serde(default)]
     pub proxy_url: Option<String>,
+    /// When true, messages like `/{control_hub_prefix} …` are handled before the LLM (control hub).
+    /// Default `false` so Telegram cannot operate the host until explicitly enabled.
+    #[serde(default)]
+    pub control_hub_enabled: bool,
+    /// Telegram `BotCommand.command` value for the control hub (no leading slash).
+    /// Must be 1–32 ASCII letters, digits, or `_`.
+    #[serde(default = "default_telegram_control_hub_prefix")]
+    pub control_hub_prefix: String,
 }
 
 impl ChannelConfig for TelegramConfig {
@@ -11341,6 +11353,8 @@ default_temperature = 0.7
                     mention_only: false,
                     ack_reactions: None,
                     proxy_url: None,
+                    control_hub_enabled: false,
+                    control_hub_prefix: "z".into(),
                 }),
                 discord: None,
                 discord_history: None,
@@ -12145,6 +12159,8 @@ default_temperature = 0.7
             mention_only: false,
             ack_reactions: None,
             proxy_url: None,
+            control_hub_enabled: false,
+            control_hub_prefix: "z".into(),
         };
         let json = serde_json::to_string(&tc).unwrap();
         let parsed: TelegramConfig = serde_json::from_str(&json).unwrap();
@@ -12162,6 +12178,8 @@ default_temperature = 0.7
         assert_eq!(parsed.stream_mode, StreamMode::Off);
         assert_eq!(parsed.draft_update_interval_ms, 1000);
         assert!(!parsed.interrupt_on_new_message);
+        assert!(!parsed.control_hub_enabled);
+        assert_eq!(parsed.control_hub_prefix, "z");
     }
 
     #[test]
@@ -14762,6 +14780,8 @@ require_otp_to_resume = true
             mention_only: false,
             ack_reactions: None,
             proxy_url: None,
+            control_hub_enabled: false,
+            control_hub_prefix: "z".into(),
         });
 
         // Save (triggers encryption)

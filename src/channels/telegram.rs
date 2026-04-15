@@ -400,6 +400,8 @@ pub struct TelegramChannel {
         Arc<std::sync::Mutex<std::collections::HashMap<String, (String, std::time::Instant)>>>,
     /// Per-channel proxy URL override.
     proxy_url: Option<String>,
+    /// When set, used to register Telegram bot commands (`setMyCommands`) on connect.
+    command_sync: Option<Arc<Config>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -444,6 +446,7 @@ impl TelegramChannel {
             voice_chats: Arc::new(std::sync::Mutex::new(std::collections::HashSet::new())),
             pending_voice: Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
             proxy_url: None,
+            command_sync: None,
         }
     }
 
@@ -456,6 +459,12 @@ impl TelegramChannel {
     /// Set a per-channel proxy URL that overrides the global proxy config.
     pub fn with_proxy_url(mut self, proxy_url: Option<String>) -> Self {
         self.proxy_url = proxy_url;
+        self
+    }
+
+    /// Provide runtime config for syncing the Telegram bot command menu (`setMyCommands`).
+    pub fn with_command_sync_config(mut self, config: Arc<Config>) -> Self {
+        self.command_sync = Some(config);
         self
     }
 
@@ -650,6 +659,45 @@ impl TelegramChannel {
 
     fn api_url(&self, method: &str) -> String {
         format!("{}/bot{}/{method}", self.api_base, self.bot_token)
+    }
+
+    /// Register the bot command menu via Telegram `setMyCommands`.
+    async fn sync_bot_commands(&self) -> anyhow::Result<()> {
+        let Some(cfg) = self.command_sync.as_ref() else {
+            return Ok(());
+        };
+        let rows = super::control_hub::telegram_bot_command_rows(cfg.as_ref());
+        let commands: Vec<serde_json::Value> = rows
+            .into_iter()
+            .map(|(command, description)| {
+                serde_json::json!({ "command": command, "description": description })
+            })
+            .collect();
+        let cmd_count = commands.len();
+        let body = serde_json::json!({ "commands": commands });
+        let url = self.api_url("setMyCommands");
+        let resp = self
+            .http_client()
+            .post(&url)
+            .json(&body)
+            .send()
+            .await
+            .context("setMyCommands HTTP request failed")?;
+        let status = resp.status();
+        let data: serde_json::Value = resp
+            .json()
+            .await
+            .unwrap_or_else(|_| serde_json::json!({ "ok": false, "description": "invalid json" }));
+        let ok = data.get("ok").and_then(serde_json::Value::as_bool).unwrap_or(false);
+        if !ok || !status.is_success() {
+            let desc = data
+                .get("description")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("unknown error");
+            anyhow::bail!("setMyCommands failed (HTTP {status}): {desc}");
+        }
+        tracing::info!("Telegram setMyCommands registered {cmd_count} bot commands");
+        Ok(())
     }
 
     /// Synthesize text to speech and send as a Telegram voice note (static version for spawned tasks).
@@ -2881,6 +2929,9 @@ impl Channel for TelegramChannel {
                                             offset = uid + 1;
                                         }
                                     }
+                                }
+                                if let Err(e) = self.sync_bot_commands().await {
+                                    tracing::warn!("Telegram setMyCommands: {e:#}");
                                 }
                                 break; // Probe succeeded; enter the long-poll loop.
                             }

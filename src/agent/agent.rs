@@ -1119,6 +1119,51 @@ impl Agent {
         )
     }
 
+    /// Rebuild the LLM provider after a gateway slash `/models` or `/model` route change.
+    pub fn reset_provider_for_gateway_route(
+        &mut self,
+        config: &crate::config::Config,
+        provider: &str,
+        model: &str,
+        route_api_key: Option<&str>,
+    ) -> anyhow::Result<()> {
+        let provider_runtime_options =
+            crate::providers::provider_runtime_options_from_config(config);
+        let api_key = route_api_key
+            .map(std::string::ToString::to_string)
+            .or(config.api_key.clone());
+        let default_prov = config.default_provider.as_deref().unwrap_or("openrouter");
+        let api_url = if provider == default_prov {
+            config.api_url.as_deref()
+        } else {
+            None
+        };
+        let provider_box = if config.model_routes.is_empty() {
+            crate::providers::create_resilient_provider_with_options(
+                provider,
+                api_key.as_deref(),
+                api_url,
+                &config.reliability,
+                &provider_runtime_options,
+            )?
+        } else {
+            crate::providers::create_routed_provider_with_options(
+                provider,
+                api_key.as_deref(),
+                api_url,
+                &config.reliability,
+                &config.model_routes,
+                model,
+                &provider_runtime_options,
+            )?
+        };
+        self.provider = provider_box;
+        self.provider_label = provider.to_string();
+        self.model_name = model.to_string();
+        self.provider_api_key = api_key;
+        Ok(())
+    }
+
     /// Execute a single agent turn while streaming intermediate events.
     ///
     /// Behaves identically to [`turn`](Self::turn) but forwards [`TurnEventSink`]

@@ -66,6 +66,8 @@ mod tests {
             mention_only: false,
             ack_reactions: None,
             proxy_url: None,
+            control_hub_enabled: false,
+            control_hub_prefix: "z".into(),
         };
 
         let discord = DiscordConfig {

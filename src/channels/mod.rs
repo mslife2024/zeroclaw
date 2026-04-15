@@ -17,6 +17,7 @@
 pub mod bluesky;
 pub mod clawdtalk;
 pub mod cli;
+pub mod control_hub;
 pub mod dingtalk;
 pub mod discord;
 pub mod discord_history;
@@ -39,6 +40,7 @@ pub mod nostr;
 pub mod notion;
 pub mod qq;
 pub mod reddit;
+pub mod runtime_slash;
 pub mod session_backend;
 pub mod session_sqlite;
 pub mod session_store;
@@ -115,7 +117,6 @@ use crate::tools::{self, Tool};
 use crate::util::truncate_with_ellipsis;
 use anyhow::{Context, Result};
 use portable_atomic::{AtomicU64, Ordering};
-use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
 use std::path::{Path, PathBuf};
@@ -204,8 +205,6 @@ const CHANNEL_MIN_IN_FLIGHT_MESSAGES: usize = 8;
 const CHANNEL_MAX_IN_FLIGHT_MESSAGES: usize = 64;
 const CHANNEL_TYPING_REFRESH_INTERVAL_SECS: u64 = 4;
 const CHANNEL_HEALTH_HEARTBEAT_SECS: u64 = 30;
-const MODEL_CACHE_FILE: &str = "models_cache.json";
-const MODEL_CACHE_PREVIEW_LIMIT: usize = 10;
 const MEMORY_CONTEXT_MAX_ENTRIES: usize = 4;
 const MEMORY_CONTEXT_ENTRY_MAX_CHARS: usize = 800;
 const MEMORY_CONTEXT_MAX_CHARS: usize = 4_000;
@@ -249,15 +248,7 @@ fn channel_message_timeout_budget_secs_with_cap(
     message_timeout_secs.saturating_mul(scale)
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct ChannelRouteSelection {
-    provider: String,
-    model: String,
-    /// Route-specific API key override. When set, this takes precedence over
-    /// the global `api_key` in [`ChannelRuntimeContext`] when creating the
-    /// provider for this route.
-    api_key: Option<String>,
-}
+type ChannelRouteSelection = runtime_slash::SlashRouteSelection;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum ChannelRuntimeCommand {
@@ -267,17 +258,6 @@ enum ChannelRuntimeCommand {
     SetModel(String),
     ShowConfig,
     NewSession,
-}
-
-#[derive(Debug, Clone, Default, Deserialize)]
-struct ModelCacheState {
-    entries: Vec<ModelCacheEntry>,
-}
-
-#[derive(Debug, Clone, Default, Deserialize)]
-struct ModelCacheEntry {
-    provider: String,
-    models: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -742,71 +722,16 @@ fn strip_tool_summary_prefix(text: &str) -> String {
     text.to_string()
 }
 
-fn supports_runtime_model_switch(channel_name: &str) -> bool {
-    matches!(channel_name, "telegram" | "discord" | "matrix" | "slack")
-}
-
 fn parse_runtime_command(channel_name: &str, content: &str) -> Option<ChannelRuntimeCommand> {
-    let trimmed = content.trim();
-    if !trimmed.starts_with('/') {
-        return None;
-    }
-
-    let mut parts = trimmed.split_whitespace();
-    let command_token = parts.next()?;
-    let base_command = command_token
-        .split('@')
-        .next()
-        .unwrap_or(command_token)
-        .to_ascii_lowercase();
-
-    match base_command.as_str() {
-        // `/new` is available on every channel — no model-switch gate.
-        "/new" => Some(ChannelRuntimeCommand::NewSession),
-        // Model/provider switching is channel-gated.
-        "/models" if supports_runtime_model_switch(channel_name) => {
-            if let Some(provider) = parts.next() {
-                Some(ChannelRuntimeCommand::SetProvider(
-                    provider.trim().to_string(),
-                ))
-            } else {
-                Some(ChannelRuntimeCommand::ShowProviders)
-            }
-        }
-        "/model" if supports_runtime_model_switch(channel_name) => {
-            let model = parts.collect::<Vec<_>>().join(" ").trim().to_string();
-            if model.is_empty() {
-                Some(ChannelRuntimeCommand::ShowModel)
-            } else {
-                Some(ChannelRuntimeCommand::SetModel(model))
-            }
-        }
-        "/config" if supports_runtime_model_switch(channel_name) => {
-            Some(ChannelRuntimeCommand::ShowConfig)
-        }
-        _ => None,
-    }
-}
-
-fn resolve_provider_alias(name: &str) -> Option<String> {
-    let candidate = name.trim();
-    if candidate.is_empty() {
-        return None;
-    }
-
-    let providers_list = providers::list_providers();
-    for provider in providers_list {
-        if provider.name.eq_ignore_ascii_case(candidate)
-            || provider
-                .aliases
-                .iter()
-                .any(|alias| alias.eq_ignore_ascii_case(candidate))
-        {
-            return Some(provider.name.to_string());
-        }
-    }
-
-    None
+    use runtime_slash::ParsedRuntimeSlash as P;
+    Some(match runtime_slash::parse_runtime_slash(channel_name, content)? {
+        P::ShowProviders => ChannelRuntimeCommand::ShowProviders,
+        P::SetProvider(s) => ChannelRuntimeCommand::SetProvider(s),
+        P::ShowModel => ChannelRuntimeCommand::ShowModel,
+        P::SetModel(s) => ChannelRuntimeCommand::SetModel(s),
+        P::ShowConfig => ChannelRuntimeCommand::ShowConfig,
+        P::NewSession => ChannelRuntimeCommand::NewSession,
+    })
 }
 
 fn resolved_default_provider(config: &Config) -> String {
@@ -1332,29 +1257,6 @@ fn is_context_window_overflow_error(err: &anyhow::Error) -> bool {
     .any(|hint| lower.contains(hint))
 }
 
-fn load_cached_model_preview(workspace_dir: &Path, provider_name: &str) -> Vec<String> {
-    let cache_path = workspace_dir.join("state").join(MODEL_CACHE_FILE);
-    let Ok(raw) = std::fs::read_to_string(cache_path) else {
-        return Vec::new();
-    };
-    let Ok(state) = serde_json::from_str::<ModelCacheState>(&raw) else {
-        return Vec::new();
-    };
-
-    state
-        .entries
-        .into_iter()
-        .find(|entry| entry.provider == provider_name)
-        .map(|entry| {
-            entry
-                .models
-                .into_iter()
-                .take(MODEL_CACHE_PREVIEW_LIMIT)
-                .collect::<Vec<_>>()
-        })
-        .unwrap_or_default()
-}
-
 /// Build a cache key that includes the provider name and, when a
 /// route-specific API key is supplied, a hash of that key. This prevents
 /// cache poisoning when multiple routes target the same provider with
@@ -1449,108 +1351,6 @@ async fn create_resilient_provider_nonblocking(
     .context("failed to join provider initialization task")?
 }
 
-fn build_models_help_response(
-    current: &ChannelRouteSelection,
-    workspace_dir: &Path,
-    model_routes: &[crate::config::ModelRouteConfig],
-) -> String {
-    let mut response = String::new();
-    let _ = writeln!(
-        response,
-        "Current provider: `{}`\nCurrent model: `{}`",
-        current.provider, current.model
-    );
-    response.push_str("\nSwitch model with `/model <model-id>` or `/model <hint>`.\n");
-
-    if !model_routes.is_empty() {
-        response.push_str("\nConfigured model routes:\n");
-        for route in model_routes {
-            let _ = writeln!(
-                response,
-                "  `{}` → {} ({})",
-                route.hint, route.model, route.provider
-            );
-        }
-    }
-
-    let cached_models = load_cached_model_preview(workspace_dir, &current.provider);
-    if cached_models.is_empty() {
-        let _ = writeln!(
-            response,
-            "\nNo cached model list found for `{}`. Ask the operator to run `zeroclaw models refresh --provider {}`.",
-            current.provider, current.provider
-        );
-    } else {
-        let _ = writeln!(
-            response,
-            "\nCached model IDs (top {}):",
-            cached_models.len()
-        );
-        for model in cached_models {
-            let _ = writeln!(response, "- `{model}`");
-        }
-    }
-
-    response
-}
-
-fn build_providers_help_response(current: &ChannelRouteSelection) -> String {
-    let mut response = String::new();
-    let _ = writeln!(
-        response,
-        "Current provider: `{}`\nCurrent model: `{}`",
-        current.provider, current.model
-    );
-    response.push_str("\nSwitch provider with `/models <provider>`.\n");
-    response.push_str("Switch model with `/model <model-id>`.\n\n");
-    response.push_str("Available providers:\n");
-    for provider in providers::list_providers() {
-        if provider.aliases.is_empty() {
-            let _ = writeln!(response, "- {}", provider.name);
-        } else {
-            let _ = writeln!(
-                response,
-                "- {} (aliases: {})",
-                provider.name,
-                provider.aliases.join(", ")
-            );
-        }
-    }
-    response
-}
-
-/// Build a plain-text `/config` response for non-Slack channels.
-fn build_config_text_response(
-    current: &ChannelRouteSelection,
-    _workspace_dir: &Path,
-    model_routes: &[crate::config::ModelRouteConfig],
-) -> String {
-    let mut resp = String::new();
-    let _ = writeln!(
-        resp,
-        "Current provider: `{}`\nCurrent model: `{}`",
-        current.provider, current.model
-    );
-    resp.push_str("\nAvailable providers:\n");
-    for p in providers::list_providers() {
-        let _ = writeln!(resp, "- `{}`", p.name);
-    }
-    if !model_routes.is_empty() {
-        resp.push_str("\nConfigured model routes:\n");
-        for route in model_routes {
-            let _ = writeln!(
-                resp,
-                "  `{}` -> {} ({})",
-                route.hint, route.model, route.provider
-            );
-        }
-    }
-    resp.push_str(
-        "\nUse `/models <provider>` to switch provider.\nUse `/model <model-id>` to switch model.",
-    );
-    resp
-}
-
 /// Prefix used to signal that a runtime command response contains raw Block Kit
 /// JSON instead of plain text. [`SlackChannel::send`] detects this and posts
 /// the blocks directly via `chat.postMessage`.
@@ -1588,7 +1388,7 @@ fn build_config_block_kit(
         })
         .collect();
 
-    let cached = load_cached_model_preview(workspace_dir, &current.provider);
+    let cached = runtime_slash::load_cached_model_preview(workspace_dir, &current.provider);
     for model_id in cached {
         if !model_options.iter().any(|o| {
             o.get("value")
@@ -1701,9 +1501,11 @@ async fn handle_runtime_command_if_needed(
     let mut current = get_route_selection(ctx, &sender_key);
 
     let response = match command {
-        ChannelRuntimeCommand::ShowProviders => build_providers_help_response(&current),
+        ChannelRuntimeCommand::ShowProviders => {
+            runtime_slash::build_providers_help_response(&current)
+        }
         ChannelRuntimeCommand::SetProvider(raw_provider) => {
-            match resolve_provider_alias(&raw_provider) {
+            match runtime_slash::resolve_provider_alias(&raw_provider) {
                 Some(provider_name) => {
                     match get_or_create_provider(ctx, &provider_name, None).await {
                         Ok(_) => {
@@ -1730,9 +1532,11 @@ async fn handle_runtime_command_if_needed(
                 ),
             }
         }
-        ChannelRuntimeCommand::ShowModel => {
-            build_models_help_response(&current, ctx.workspace_dir.as_path(), &ctx.model_routes)
-        }
+        ChannelRuntimeCommand::ShowModel => runtime_slash::build_models_help_response(
+            &current,
+            ctx.workspace_dir.as_path(),
+            &ctx.model_routes,
+        ),
         ChannelRuntimeCommand::SetModel(raw_model) => {
             let model = raw_model.trim().trim_matches('`').to_string();
             if model.is_empty() {
@@ -1766,7 +1570,11 @@ async fn handle_runtime_command_if_needed(
                 // Use a magic prefix so SlackChannel::send() can detect Block Kit JSON.
                 format!("__ZEROCLAW_BLOCK_KIT__{blocks_json}")
             } else {
-                build_config_text_response(&current, ctx.workspace_dir.as_path(), &ctx.model_routes)
+                runtime_slash::build_config_text_response(
+                    &current,
+                    ctx.workspace_dir.as_path(),
+                    &ctx.model_routes,
+                )
             }
         }
         ChannelRuntimeCommand::NewSession => {
@@ -1787,6 +1595,58 @@ async fn handle_runtime_command_if_needed(
     {
         tracing::warn!(
             "Failed to send runtime command response on {}: {err}",
+            channel.name()
+        );
+    }
+
+    true
+}
+
+async fn handle_control_hub_command_if_needed(
+    ctx: &ChannelRuntimeContext,
+    msg: &traits::ChannelMessage,
+    target_channel: Option<&Arc<dyn Channel>>,
+) -> bool {
+    if !control_hub::telegram_control_hub_should_handle(ctx.prompt_config.as_ref(), &msg.channel, &msg.content)
+    {
+        return false;
+    }
+
+    let Some(channel) = target_channel else {
+        return true;
+    };
+
+    let cfg = ctx.prompt_config.as_ref();
+    let prefix = cfg
+        .channels_config
+        .telegram
+        .as_ref()
+        .map(|t| t.control_hub_prefix.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "z".to_string());
+
+    let Some(hub_args) = control_hub::parse_hub_invocation(&msg.content, &prefix) else {
+        return false;
+    };
+
+    let response = match control_hub::dispatch_hub(cfg, &hub_args).await {
+        Ok(s) => {
+            const MAX: usize = 3800;
+            if s.chars().count() > MAX {
+                truncate_with_ellipsis(&s, MAX)
+            } else {
+                s
+            }
+        }
+        Err(e) => format!("⚠️ {e:#}"),
+    };
+
+    if let Err(err) = channel
+        .send(&SendMessage::new(response, &msg.reply_target).in_thread(msg.thread_ts.clone()))
+        .await
+    {
+        tracing::warn!(
+            "Failed to send control hub response on {}: {err}",
             channel.name()
         );
     }
@@ -2390,6 +2250,9 @@ async fn process_channel_message(
         tracing::warn!("Failed to apply runtime config update: {err}");
     }
     if handle_runtime_command_if_needed(ctx.as_ref(), &msg, target_channel.as_ref()).await {
+        return;
+    }
+    if handle_control_hub_command_if_needed(ctx.as_ref(), &msg, target_channel.as_ref()).await {
         return;
     }
 
@@ -3763,7 +3626,8 @@ fn build_channel_by_id(config: &Config, channel_id: &str) -> Result<Arc<dyn Chan
                 .with_streaming(tg.stream_mode, tg.draft_update_interval_ms)
                 .with_transcription(config.transcription.clone())
                 .with_tts(config.tts.clone())
-                .with_workspace_dir(config.workspace_dir.clone()),
+                .with_workspace_dir(config.workspace_dir.clone())
+                .with_command_sync_config(std::sync::Arc::new(config.clone())),
             ))
         }
         "discord" => {
@@ -3868,7 +3732,8 @@ fn collect_configured_channels(
                 .with_transcription(config.transcription.clone())
                 .with_tts(config.tts.clone())
                 .with_workspace_dir(config.workspace_dir.clone())
-                .with_proxy_url(tg.proxy_url.clone()),
+                .with_proxy_url(tg.proxy_url.clone())
+                .with_command_sync_config(std::sync::Arc::new(config.clone())),
             ),
         });
     }
@@ -7918,6 +7783,7 @@ BTC is currently around $65,000 based on latest tool output."#
             version: "1.0.0".into(),
             author: None,
             tags: vec![],
+            user_invocable: false,
             tools: vec![crate::skills::SkillTool {
                 name: "lint".into(),
                 description: "Run static checks".into(),
@@ -7953,6 +7819,7 @@ BTC is currently around $65,000 based on latest tool output."#
             version: "1.0.0".into(),
             author: None,
             tags: vec![],
+            user_invocable: false,
             tools: vec![crate::skills::SkillTool {
                 name: "lint".into(),
                 description: "Run static checks".into(),
@@ -7998,6 +7865,7 @@ BTC is currently around $65,000 based on latest tool output."#
             version: "1.0.0".into(),
             author: None,
             tags: vec![],
+            user_invocable: false,
             tools: vec![crate::skills::SkillTool {
                 name: "run\"linter\"".into(),
                 description: "Run <lint> & report".into(),
@@ -10161,6 +10029,8 @@ This is an example JSON object for profile settings."#;
             mention_only: false,
             ack_reactions: None,
             proxy_url: None,
+            control_hub_enabled: false,
+            control_hub_prefix: "z".into(),
         });
         match build_channel_by_id(&config, "telegram") {
             Ok(channel) => assert_eq!(channel.name(), "telegram"),

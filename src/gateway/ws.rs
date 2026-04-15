@@ -181,6 +181,83 @@ fn hydrate_gateway_ws_session(
     (session_key, resumed, message_count, effective_name)
 }
 
+/// Apply a persisted `/model` or `/models` route for this gateway session (if any).
+fn apply_stored_gateway_route_override(
+    agent: &mut crate::agent::Agent,
+    state: &AppState,
+    session_key: &str,
+) {
+    let sel = state.gateway_chat_routes.lock().get(session_key).cloned();
+    let Some(sel) = sel else {
+        return;
+    };
+    let cfg = state.config.lock().clone();
+    if let Err(e) = agent.reset_provider_for_gateway_route(
+        &cfg,
+        &sel.provider,
+        &sel.model,
+        sel.api_key.as_deref(),
+    ) {
+        tracing::warn!(
+            error = %e,
+            %session_key,
+            "Stored gateway route override failed to apply"
+        );
+    }
+}
+
+async fn send_gateway_slash_done(
+    sender: &mut futures_util::stream::SplitSink<WebSocket, Message>,
+    reply: &str,
+) {
+    let reset = serde_json::json!({ "type": "chunk_reset" });
+    let _ = sender.send(Message::Text(reset.to_string().into())).await;
+    let done = serde_json::json!({
+        "type": "done",
+        "full_response": reply,
+    });
+    let _ = sender.send(Message::Text(done.to_string().into())).await;
+}
+
+/// Returns `true` when the message was a slash command and must not be passed to the LLM.
+async fn maybe_handle_gateway_chat_slash(
+    state: &AppState,
+    session_key: &str,
+    content: &str,
+    agent: &mut crate::agent::Agent,
+    sender: &mut futures_util::stream::SplitSink<WebSocket, Message>,
+) -> bool {
+    let Some(res) = super::chat_slash::handle_gateway_ws_slash(state, session_key, content).await
+    else {
+        return false;
+    };
+
+    if res.clear_chat_session {
+        if let Some(ref backend) = state.session_backend {
+            let _ = backend.delete_session(session_key);
+        }
+        agent.clear_history();
+        if let Some(ref backend) = state.session_backend {
+            let messages = backend.load(session_key);
+            agent.seed_history(&messages);
+        } else {
+            agent.seed_history(&[]);
+        }
+    }
+
+    let mut reply = res.reply;
+    if let Some((ref p, ref m, ref ak)) = res.rebind {
+        let cfg = state.config.lock().clone();
+        if let Err(e) = agent.reset_provider_for_gateway_route(&cfg, p, m, ak.as_deref()) {
+            let safe = crate::providers::sanitize_api_error(&e.to_string());
+            reply = format!("{reply}\n\n⚠️ Failed to apply route to agent: {safe}");
+        }
+    }
+
+    send_gateway_slash_done(sender, &reply).await;
+    true
+}
+
 async fn send_ws_session_start(
     sender: &mut futures_util::stream::SplitSink<WebSocket, Message>,
     session_id: &str,
@@ -258,6 +335,8 @@ async fn handle_socket(
         agent.set_memory_session_id(Some(session_id.clone()));
     }
 
+    apply_stored_gateway_route_override(&mut agent, &state, &session_key);
+
     send_ws_session_start(
         &mut sender,
         &session_id,
@@ -311,6 +390,7 @@ async fn handle_socket(
                                 agent.set_memory_session_id(Some(session_id.clone()));
                                 agent.seed_history(&[]);
                             }
+                            apply_stored_gateway_route_override(&mut agent, &state, &session_key);
                             send_ws_session_start(
                                 &mut sender,
                                 &session_id,
@@ -345,13 +425,28 @@ async fn handle_socket(
             if parsed["type"].as_str() == Some("message") {
                 let content = parsed["content"].as_str().unwrap_or("").to_string();
                 if !content.is_empty() {
-                    // Persist user message
-                    if let Some(ref backend) = state.session_backend {
-                        let user_msg = crate::providers::ChatMessage::user(&content);
-                        let _ = backend.append(&session_key, &user_msg);
-                    }
-                    process_chat_message(&state, &mut agent, &mut sender, &content, &session_key)
+                    if !maybe_handle_gateway_chat_slash(
+                        &state,
+                        &session_key,
+                        &content,
+                        &mut agent,
+                        &mut sender,
+                    )
+                    .await
+                    {
+                        if let Some(ref backend) = state.session_backend {
+                            let user_msg = crate::providers::ChatMessage::user(&content);
+                            let _ = backend.append(&session_key, &user_msg);
+                        }
+                        process_chat_message(
+                            &state,
+                            &mut agent,
+                            &mut sender,
+                            &content,
+                            &session_key,
+                        )
                         .await;
+                    }
                 }
             } else {
                 let unknown_type = parsed["type"].as_str().unwrap_or("unknown");
@@ -417,6 +512,18 @@ async fn handle_socket(
             continue;
         }
 
+        if maybe_handle_gateway_chat_slash(
+            &state,
+            &session_key,
+            &content,
+            &mut agent,
+            &mut sender,
+        )
+        .await
+        {
+            continue;
+        }
+
         // Persist user message
         if let Some(ref backend) = state.session_backend {
             let user_msg = crate::providers::ChatMessage::user(&content);
@@ -440,18 +547,14 @@ async fn process_chat_message(
 ) {
     use crate::agent::{TurnEvent, TurnEventSink};
 
-    let provider_label = state
-        .config
-        .lock()
-        .default_provider
-        .clone()
-        .unwrap_or_else(|| "unknown".to_string());
+    let provider_label = agent.provider_label_str().to_string();
+    let model_label = agent.model_name_str().to_string();
 
     // Broadcast agent_start event
     let _ = state.event_tx.send(serde_json::json!({
         "type": "agent_start",
         "provider": provider_label,
-        "model": state.model,
+        "model": model_label,
     }));
 
     // Channel for streaming turn events from the agent.
@@ -512,7 +615,7 @@ async fn process_chat_message(
             let _ = state.event_tx.send(serde_json::json!({
                 "type": "agent_end",
                 "provider": provider_label,
-                "model": state.model,
+                "model": model_label,
             }));
         }
         Err(e) => {
@@ -616,6 +719,19 @@ mod tests {
     fn extract_ws_token_skips_empty_query_param() {
         let headers = HeaderMap::new();
         assert_eq!(extract_ws_token(&headers, Some("")), None);
+    }
+
+    #[test]
+    fn gateway_ws_slash_parsing_matches_runtime_slash() {
+        use crate::channels::runtime_slash::{parse_gateway_ws_slash, ParsedRuntimeSlash};
+        assert_eq!(
+            parse_gateway_ws_slash("  /new  "),
+            Some(ParsedRuntimeSlash::NewSession)
+        );
+        assert_eq!(
+            parse_gateway_ws_slash("/models"),
+            Some(ParsedRuntimeSlash::ShowProviders)
+        );
     }
 
     #[test]

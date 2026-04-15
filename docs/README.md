@@ -19,6 +19,7 @@ Localized hubs:
 | Configure custom providers/endpoints | [custom-providers.md](contributing/custom-providers.md) |
 | Configure Z.AI / GLM provider | [zai-glm-setup.md](setup-guides/zai-glm-setup.md) |
 | Tune shell safety tiers (profiles) | [shell-profiles.md](setup-guides/shell-profiles.md) |
+| Telegram `/new`, `/models`, optional `/z` control hub | [telegram-slash-commands.md](setup-guides/telegram-slash-commands.md) |
 | Use LangGraph integration patterns | [langgraph-integration.md](contributing/langgraph-integration.md) |
 | Operate runtime (day-2 runbook) | [operations-runbook.md](ops/operations-runbook.md) |
 | Troubleshoot install/runtime/channel issues | [troubleshooting.md](ops/troubleshooting.md) |

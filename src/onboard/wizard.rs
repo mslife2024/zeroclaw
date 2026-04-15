@@ -3824,6 +3824,8 @@ fn setup_channels() -> Result<ChannelsConfig> {
                     mention_only: false,
                     ack_reactions: None,
                     proxy_url: None,
+                    control_hub_enabled: false,
+                    control_hub_prefix: "z".into(),
                 });
             }
             ChannelMenuChoice::Discord => {

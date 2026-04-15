@@ -842,6 +842,8 @@ mod tests {
             mention_only: false,
             ack_reactions: None,
             proxy_url: None,
+            control_hub_enabled: false,
+            control_hub_prefix: "z".into(),
         });
         let entries = all_integrations();
         let tg = entries.iter().find(|e| e.name == "Telegram").unwrap();

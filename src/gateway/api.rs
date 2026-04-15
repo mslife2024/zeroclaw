@@ -229,6 +229,18 @@ pub async fn handle_api_tools(
     Json(serde_json::json!({"tools": tools})).into_response()
 }
 
+/// GET /api/chat-slash-commands — documented slash commands for gateway WebSocket chat.
+pub async fn handle_api_chat_slash_commands(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> impl IntoResponse {
+    if let Err(e) = require_auth(&state, &headers) {
+        return e.into_response();
+    }
+
+    Json(super::chat_slash::slash_command_catalog()).into_response()
+}
+
 /// GET /api/cron — list cron jobs
 pub async fn handle_api_cron_list(
     State(state): State<AppState>,
@@ -1540,6 +1552,7 @@ mod tests {
             path_prefix: String::new(),
             hooks: None,
             canvas_store: crate::tools::canvas::CanvasStore::new(),
+            gateway_chat_routes: Arc::new(parking_lot::Mutex::new(std::collections::HashMap::new())),
         }
     }
 

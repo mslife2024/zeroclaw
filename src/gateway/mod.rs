@@ -9,6 +9,7 @@
 
 pub mod api;
 pub mod api_pairing;
+pub mod chat_slash;
 #[cfg(feature = "plugins-wasm")]
 pub mod api_plugins;
 pub mod canvas;
@@ -364,6 +365,10 @@ pub struct AppState {
     pub hooks: Option<Arc<crate::hooks::HookRunner>>,
     /// Shared canvas store for Live Canvas (A2UI) system
     pub canvas_store: CanvasStore,
+    /// Per gateway WS session key — provider/model overrides from `/models` and `/model`.
+    pub gateway_chat_routes: Arc<
+        Mutex<std::collections::HashMap<String, crate::channels::runtime_slash::SlashRouteSelection>>,
+    >,
 }
 
 /// Run the HTTP gateway using axum with proper HTTP/1.1 compliance.
@@ -858,6 +863,7 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
         path_prefix: path_prefix.unwrap_or("").to_string(),
         hooks: hooks.clone(),
         canvas_store,
+        gateway_chat_routes: Arc::new(Mutex::new(std::collections::HashMap::new())),
     };
 
     // Config PUT needs larger body limit (1MB)
@@ -889,6 +895,10 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
         .route("/api/status", get(api::handle_api_status))
         .route("/api/config", get(api::handle_api_config_get))
         .route("/api/tools", get(api::handle_api_tools))
+        .route(
+            "/api/chat-slash-commands",
+            get(api::handle_api_chat_slash_commands),
+        )
         .route("/api/cron", get(api::handle_api_cron_list))
         .route("/api/cron", post(api::handle_api_cron_add))
         .route(
@@ -2157,6 +2167,7 @@ mod tests {
             pending_pairings: None,
             hooks: None,
             canvas_store: CanvasStore::new(),
+            gateway_chat_routes: Arc::new(Mutex::new(std::collections::HashMap::new())),
         };
 
         let response = handle_metrics(State(state)).await.into_response();
@@ -2216,6 +2227,7 @@ mod tests {
             pending_pairings: None,
             hooks: None,
             canvas_store: CanvasStore::new(),
+            gateway_chat_routes: Arc::new(Mutex::new(std::collections::HashMap::new())),
         };
 
         let response = handle_metrics(State(state)).await.into_response();
@@ -2605,6 +2617,7 @@ mod tests {
             pending_pairings: None,
             hooks: None,
             canvas_store: CanvasStore::new(),
+            gateway_chat_routes: Arc::new(Mutex::new(std::collections::HashMap::new())),
         };
 
         let mut headers = HeaderMap::new();
@@ -2678,6 +2691,7 @@ mod tests {
             pending_pairings: None,
             hooks: None,
             canvas_store: CanvasStore::new(),
+            gateway_chat_routes: Arc::new(Mutex::new(std::collections::HashMap::new())),
         };
 
         let headers = HeaderMap::new();
@@ -2763,6 +2777,7 @@ mod tests {
             pending_pairings: None,
             hooks: None,
             canvas_store: CanvasStore::new(),
+            gateway_chat_routes: Arc::new(Mutex::new(std::collections::HashMap::new())),
         };
 
         let response = handle_webhook(
@@ -2820,6 +2835,7 @@ mod tests {
             pending_pairings: None,
             hooks: None,
             canvas_store: CanvasStore::new(),
+            gateway_chat_routes: Arc::new(Mutex::new(std::collections::HashMap::new())),
         };
 
         let mut headers = HeaderMap::new();
@@ -2882,6 +2898,7 @@ mod tests {
             pending_pairings: None,
             hooks: None,
             canvas_store: CanvasStore::new(),
+            gateway_chat_routes: Arc::new(Mutex::new(std::collections::HashMap::new())),
         };
 
         let mut headers = HeaderMap::new();
@@ -2949,6 +2966,7 @@ mod tests {
             pending_pairings: None,
             hooks: None,
             canvas_store: CanvasStore::new(),
+            gateway_chat_routes: Arc::new(Mutex::new(std::collections::HashMap::new())),
         };
 
         let response = Box::pin(handle_nextcloud_talk_webhook(
@@ -3012,6 +3030,7 @@ mod tests {
             pending_pairings: None,
             hooks: None,
             canvas_store: CanvasStore::new(),
+            gateway_chat_routes: Arc::new(Mutex::new(std::collections::HashMap::new())),
         };
 
         let mut headers = HeaderMap::new();

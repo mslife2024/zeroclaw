@@ -37,6 +37,9 @@ pub struct Skill {
     pub author: Option<String>,
     #[serde(default)]
     pub tags: Vec<String>,
+    /// When true, this skill may be advertised as a Telegram bot menu command (see control hub).
+    #[serde(default)]
+    pub user_invocable: bool,
     #[serde(default)]
     pub tools: Vec<SkillTool>,
     #[serde(default)]
@@ -78,6 +81,9 @@ struct SkillMeta {
     author: Option<String>,
     #[serde(default)]
     tags: Vec<String>,
+    /// Optional: advertise this skill name in the Telegram bot command menu.
+    #[serde(default, alias = "user-invocable")]
+    user_invocable: bool,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -88,6 +94,8 @@ struct SkillMarkdownMeta {
     author: Option<String>,
     #[serde(default)]
     tags: Vec<String>,
+    #[serde(default, alias = "user-invocable")]
+    user_invocable: bool,
 }
 
 fn default_version() -> String {
@@ -541,6 +549,7 @@ fn load_skill_toml(path: &Path) -> Result<Skill> {
         version: manifest.skill.version,
         author: manifest.skill.author,
         tags: manifest.skill.tags,
+        user_invocable: manifest.skill.user_invocable,
         tools: manifest.tools,
         prompts: manifest.prompts,
         location: Some(path.to_path_buf()),
@@ -567,6 +576,7 @@ fn load_skill_md(path: &Path, dir: &Path) -> Result<Skill> {
         version: parsed.meta.version.unwrap_or_else(default_version),
         author: parsed.meta.author,
         tags: parsed.meta.tags,
+        user_invocable: parsed.meta.user_invocable,
         tools: Vec::new(),
         prompts: vec![parsed.body],
         location: Some(path.to_path_buf()),
@@ -606,6 +616,7 @@ fn load_open_skill_md(path: &Path) -> Result<Skill> {
             .author
             .or_else(|| Some("besoeasy/open-skills".to_string())),
         tags: parsed.meta.tags,
+        user_invocable: parsed.meta.user_invocable,
         tools: Vec::new(),
         prompts: vec![parsed.body],
         location: Some(path.to_path_buf()),
@@ -1302,6 +1313,51 @@ fn install_clawhub_skill_source(
     }
 }
 
+/// Plain-text listing of installed skills (shared by CLI and Telegram control hub).
+pub fn format_installed_skills_list(config: &crate::config::Config) -> String {
+    let workspace_dir = &config.workspace_dir;
+    let skills = load_skills_with_config(workspace_dir, config);
+    if skills.is_empty() {
+        return "No skills installed.\n\n\
+Create one: mkdir -p ~/.zeroclaw/workspace/skills/my-skill\n\
+            echo '# My Skill' > ~/.zeroclaw/workspace/skills/my-skill/SKILL.md\n\n\
+Or install: zeroclaw skills install <source>\n"
+            .to_string();
+    }
+
+    let mut out = String::new();
+    use std::fmt::Write;
+    let _ = writeln!(&mut out, "Installed skills ({}):", skills.len());
+    out.push('\n');
+    for skill in &skills {
+        let _ = writeln!(
+            &mut out,
+            "  {} v{} — {}",
+            skill.name, skill.version, skill.description
+        );
+        if skill.user_invocable {
+            let _ = writeln!(&mut out, "    user_invocable: true");
+        }
+        if !skill.tools.is_empty() {
+            let _ = writeln!(
+                &mut out,
+                "    Tools: {}",
+                skill
+                    .tools
+                    .iter()
+                    .map(|t| t.name.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
+        }
+        if !skill.tags.is_empty() {
+            let _ = writeln!(&mut out, "    Tags:  {}", skill.tags.join(", "));
+        }
+    }
+    out.push('\n');
+    out
+}
+
 /// Handle the `skills` CLI command
 #[allow(clippy::too_many_lines)]
 pub fn handle_command(command: crate::SkillCommands, config: &crate::config::Config) -> Result<()> {
@@ -1326,6 +1382,9 @@ pub fn handle_command(command: crate::SkillCommands, config: &crate::config::Con
                         console::style(format!("v{}", skill.version)).dim(),
                         skill.description
                     );
+                    if skill.user_invocable {
+                        println!("    {}", console::style("user_invocable: true").dim());
+                    }
                     if !skill.tools.is_empty() {
                         println!(
                             "    Tools: {}",
@@ -1598,6 +1657,48 @@ command = "echo hello"
     }
 
     #[test]
+    fn load_skill_from_md_frontmatter_user_invocable_kebab_alias() {
+        let dir = tempfile::tempdir().unwrap();
+        let skills_dir = dir.path().join("skills");
+        let skill_dir = skills_dir.join("invocable-skill");
+        fs::create_dir_all(&skill_dir).unwrap();
+
+        fs::write(
+            skill_dir.join("SKILL.md"),
+            "---\nname: z\ndescription: Hub\nuser-invocable: true\n---\n# Hub\n",
+        )
+        .unwrap();
+
+        let skills = load_skills(dir.path());
+        assert_eq!(skills.len(), 1);
+        assert!(skills[0].user_invocable);
+    }
+
+    #[test]
+    fn load_skill_from_toml_user_invocable() {
+        let dir = tempfile::tempdir().unwrap();
+        let skills_dir = dir.path().join("skills");
+        let skill_dir = skills_dir.join("toml-inv");
+        fs::create_dir_all(&skill_dir).unwrap();
+
+        fs::write(
+            skill_dir.join("SKILL.toml"),
+            r#"
+[skill]
+name = "toml-inv"
+description = "x"
+version = "1.0.0"
+user_invocable = true
+"#,
+        )
+        .unwrap();
+
+        let skills = load_skills(dir.path());
+        assert_eq!(skills.len(), 1);
+        assert!(skills[0].user_invocable);
+    }
+
+    #[test]
     fn skills_to_prompt_empty() {
         let prompt = skills_to_prompt(&[], Path::new("/tmp"));
         assert!(prompt.is_empty());
@@ -1611,6 +1712,7 @@ command = "echo hello"
             version: "1.0.0".to_string(),
             author: None,
             tags: vec![],
+            user_invocable: false,
             tools: vec![],
             prompts: vec!["Do the thing.".to_string()],
             location: None,
@@ -1629,6 +1731,7 @@ command = "echo hello"
             version: "1.0.0".to_string(),
             author: None,
             tags: vec![],
+            user_invocable: false,
             tools: vec![SkillTool {
                 name: "run".to_string(),
                 description: "Run task".to_string(),
@@ -1833,6 +1936,7 @@ description = "Bare minimum"
             version: "1.0.0".to_string(),
             author: None,
             tags: vec![],
+            user_invocable: false,
             tools: vec![SkillTool {
                 name: "get_weather".to_string(),
                 description: "Fetch forecast".to_string(),
@@ -1860,6 +1964,7 @@ description = "Bare minimum"
             version: "1.0.0".to_string(),
             author: None,
             tags: vec![],
+            user_invocable: false,
             tools: vec![],
             prompts: vec!["Use <tool> & check \"quotes\".".to_string()],
             location: None,
